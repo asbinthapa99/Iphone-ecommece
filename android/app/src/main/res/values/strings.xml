@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Inexa Nepal</string>
+    <string name="title_activity_main">Inexa Nepal</string>
+    <string name="package_name">com.inexanepal.app</string>
+    <string name="custom_url_scheme">com.inexanepal.app</string>
+</resources>
