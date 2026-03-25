@@ -13,8 +13,8 @@ function createTransport() {
     port: 587,
     secure: false,
     auth: {
-      user: process.env.BREVO_FROM_EMAIL,
-      pass: process.env.BREVO_SMTP_KEY,
+      user: process.env.BREVO_SMTP_LOGIN,   // a2f10b001@smtp-brevo.com
+      pass: process.env.BREVO_SMTP_KEY,     // xsmtpsib-...
     },
   })
 }
@@ -25,8 +25,7 @@ async function send(to: string, subject: string, html: string) {
     return
   }
   try {
-    const transporter = createTransport()
-    await transporter.sendMail({
+    await createTransport().sendMail({
       from: `"${process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'}" <${process.env.BREVO_FROM_EMAIL}>`,
       to,
       subject,

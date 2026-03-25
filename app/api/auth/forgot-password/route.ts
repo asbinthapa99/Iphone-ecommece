@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sql } from '@/lib/db'
-import nodemailer from 'nodemailer'
+import { sql, initUsersTable } from '@/lib/db'
 import { resetOtpEmail } from '@/lib/emails/reset-otp'
 
 function generateOtp() {
@@ -8,6 +7,7 @@ function generateOtp() {
 }
 
 export async function POST(req: NextRequest) {
+  await initUsersTable()
   const { email } = await req.json()
   if (!email) return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
 
@@ -31,21 +31,34 @@ export async function POST(req: NextRequest) {
   const { subject, html } = resetOtpEmail(otp, email)
 
   if (process.env.BREVO_SMTP_KEY) {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.BREVO_FROM_EMAIL,
-        pass: process.env.BREVO_SMTP_KEY,
-      },
-    })
-    await transporter.sendMail({
-      from: `"${process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'}" <${process.env.BREVO_FROM_EMAIL}>`,
-      to: email,
-      subject,
-      html,
-    })
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': process.env.BREVO_SMTP_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: process.env.BREVO_FROM_NAME ?? 'Inexa Nepal',
+            email: process.env.BREVO_FROM_EMAIL,
+          },
+          to: [{ email }],
+          subject,
+          htmlContent: html,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        console.error('[forgot-password] Brevo error:', err)
+        return NextResponse.json({ error: 'Failed to send OTP email. Please try again.' }, { status: 500 })
+      }
+    } catch (err) {
+      console.error('[forgot-password] Email send failed:', err)
+      return NextResponse.json({ error: 'Failed to send OTP email. Please try again.' }, { status: 500 })
+    }
+  } else {
+    console.warn('[forgot-password] BREVO_SMTP_KEY not set — email not sent')
   }
 
   return NextResponse.json({ ok: true })

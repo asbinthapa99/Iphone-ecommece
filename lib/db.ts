@@ -26,4 +26,15 @@ export async function initUsersTable() {
   } catch {
     // Columns might already exist, safe to ignore
   }
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email       TEXT NOT NULL,
+      otp         TEXT NOT NULL,
+      expires_at  TIMESTAMPTZ NOT NULL,
+      used        BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `
 }
