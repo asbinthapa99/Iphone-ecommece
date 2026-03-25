@@ -11,7 +11,7 @@ export async function PATCH(request: Request) {
     }
 
     const email = session.user.email
-    const body = await request.json()
+    const body = await request.json() as { name?: string; phone?: string; address?: string; city?: string }
     const { name, phone, address, city } = body
 
     // Ensure table has the new columns if they don't exist yet
@@ -34,8 +34,8 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Profile updated' })
 
-  } catch (err: any) {
-    console.error('Failed to update profile:', err)
+  } catch (err: unknown) {
+    console.error('Failed to update profile:', err instanceof Error ? err.message : err)
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
   }
 }
@@ -61,8 +61,8 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(rows[0])
-  } catch (err: any) {
-    console.error('Failed to get profile:', err)
+  } catch (err: unknown) {
+    console.error('Failed to get profile:', err instanceof Error ? err.message : err)
     return NextResponse.json({ error: 'Failed to get profile' }, { status: 500 })
   }
 }

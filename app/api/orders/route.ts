@@ -59,13 +59,26 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ orders, pagination: { total, page, limit, totalPages } })
 }
 
+// Define an interface for the expected request body
+interface CreateOrderRequestBody {
+  deviceId: string;
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail?: string; // Optional, can default to session user email
+  deliveryAddress: string;
+  city: string;
+  paymentMethod: PaymentMethod;
+  warrantyExtended?: boolean;
+  notes?: string;
+}
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
+  const body: CreateOrderRequestBody = await request.json()
   const {
     deviceId,
     buyerName,
@@ -96,10 +109,10 @@ export async function POST(request: NextRequest) {
   const order: Order = {
     id: crypto.randomUUID(),
     orderNumber: generateOrderNumber(),
-    userId: (session.user as any).id || session.user.email,
+    userId: (session.user as { id?: string }).id || session.user.email!,
     buyerName,
     buyerPhone,
-    buyerEmail: buyerEmail || session.user.email,
+    buyerEmail: buyerEmail || session.user.email!,
     deliveryAddress,
     city,
     paymentMethod: paymentMethod as PaymentMethod,

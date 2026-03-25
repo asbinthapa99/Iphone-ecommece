@@ -128,7 +128,7 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('Kathmandu')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('esewa')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('khalti')
   const [warrantyExtended, setWarrantyExtended] = useState(false)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -629,13 +629,13 @@ export default function CheckoutPage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || paymentMethod === 'esewa'}
                 className="w-full flex items-center justify-center gap-2 rounded-[14px] transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{
                   padding: '15px',
-                  background: submitting ? '#ccc' : '#060d0a',
+                  background: submitting || paymentMethod === 'esewa' ? '#ccc' : '#060d0a',
                   color: '#fff', fontSize: 15, fontWeight: 800,
-                  border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
+                  border: 'none', cursor: submitting || paymentMethod === 'esewa' ? 'not-allowed' : 'pointer',
                   letterSpacing: '-0.3px',
                 }}
               >

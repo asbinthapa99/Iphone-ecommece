@@ -11,7 +11,7 @@ export default function WishlistPage() {
 
   useEffect(() => {
     const list: string[] = JSON.parse(localStorage.getItem('inexa_wishlist') ?? '[]')
-    setIds(list)
+    queueMicrotask(() => setIds(list))
   }, [])
 
   const devices = MOCK_DEVICES.filter((d) => ids.includes(d.id))

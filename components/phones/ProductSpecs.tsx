@@ -200,11 +200,9 @@ export function ProductSpecs({ device }: { device: Device }) {
         </div>
         <div>
           <p className="text-[13px] font-semibold mb-1" style={{ color: '#0F6E56' }}>Why refurbished?</p>
-          <p className="text-[12px] leading-relaxed" style={{ color: '#1D9E75' }}>
-            Choosing a refurbished {device.model} supports a more sustainable approach by extending the device's lifecycle.
+            Choosing a refurbished {device.model} supports a more sustainable approach by extending the device&apos;s lifecycle.
             Every device on Inexa Nepal is IMEI-verified, factory reset, and graded by our team.
-            You get the same performance as new at a significantly lower price — with a 3-month warranty included.
-          </p>
+            You get the same performance as new at a significantly lower price — with a 6-month warranty included.
         </div>
       </div>
 

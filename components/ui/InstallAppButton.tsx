@@ -12,27 +12,37 @@ export function InstallAppButton() {
 
   useEffect(() => {
     const ua = navigator.userAgent
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as { standalone?: boolean }).standalone === true
+    const nav = navigator as Navigator & { standalone?: boolean }
+    const isStandalone = nav.standalone === true || 
+                        window.matchMedia('(display-mode: standalone)').matches
 
-    if (isStandalone) { setPlatform('installed'); return }
+    if (isStandalone) {
+      queueMicrotask(() => setPlatform('installed'))
+      return
+    }
 
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as { MSStream?: unknown }).MSStream
     const isAndroid = /Android/.test(ua)
 
-    if (isIOS) { setPlatform('ios'); return }
+    if (isIOS) {
+      queueMicrotask(() => setPlatform('ios'))
+      return
+    }
 
     // Android / Chrome: capture beforeinstallprompt
-    const handler = (e: Event) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => {
       e.preventDefault()
-      deferredPrompt.current = e as typeof deferredPrompt.current
+      deferredPrompt.current = e
       setPlatform('android')
     }
     window.addEventListener('beforeinstallprompt', handler)
 
-    if (isAndroid) setPlatform('android')
-    else setPlatform('desktop')
+    if (isAndroid) {
+      queueMicrotask(() => setPlatform('android'))
+    } else {
+      queueMicrotask(() => setPlatform('desktop'))
+    }
 
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])

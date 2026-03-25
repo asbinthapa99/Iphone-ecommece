@@ -22,6 +22,12 @@ export default function AccountPage() {
   const [city, setCity] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [imgError, setImgError] = useState(false)
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/')
+  }
 
   useEffect(() => {
     if (!loading && !user) router.push('/login')
@@ -58,10 +64,6 @@ export default function AccountPage() {
     }
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/')
-  }
 
   if (loading || !user) {
     return (
@@ -77,7 +79,6 @@ export default function AccountPage() {
 
   const initials = (user.name ?? user.email ?? 'U').slice(0, 2).toUpperCase()
   const displayName = name || user.name || user.email?.split('@')[0] || 'User'
-  const [imgError, setImgError] = useState(false)
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 pb-28">

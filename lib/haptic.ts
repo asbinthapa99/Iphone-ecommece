@@ -5,7 +5,14 @@ let _ctx: AudioContext | null = null
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!_ctx) {
-    try { _ctx = new (window.AudioContext || (window as any).webkitAudioContext)() } catch { return null }
+    try {
+      const win = window as typeof window & { webkitAudioContext?: typeof AudioContext }
+      const AudioCtx = win.AudioContext || win.webkitAudioContext
+      if (!AudioCtx) return null
+      _ctx = new AudioCtx()
+    } catch {
+      return null
+    }
   }
   return _ctx
 }

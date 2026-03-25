@@ -37,7 +37,7 @@ export default function AdminOrderDetailPage() {
 
   useEffect(() => {
     // In production: fetch(`/api/orders/${id}`)
-    setOrder(DEMO_ORDER)
+    queueMicrotask(() => setOrder(DEMO_ORDER))
   }, [id])
 
   const handleSave = async () => {

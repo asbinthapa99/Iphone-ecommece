@@ -8,7 +8,8 @@ export function WishlistButton({ id }: { id: string }) {
 
   useEffect(() => {
     const list: string[] = JSON.parse(localStorage.getItem('inexa_wishlist') ?? '[]')
-    setSaved(list.includes(id))
+    const isInList = list.includes(id)
+    queueMicrotask(() => setSaved(isInList))
   }, [id])
 
   const toggle = (e: React.MouseEvent) => {

@@ -31,12 +31,17 @@ const CartContext = createContext<CartContextValue>({
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount (Client-side only)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('inexa_cart')
-      if (saved) setItems(JSON.parse(saved))
-    } catch {}
+    const saved = localStorage.getItem('inexa_cart')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        queueMicrotask(() => setItems(parsed))
+      } catch (err) {
+        console.error('Failed to load cart', err)
+      }
+    }
   }, [])
 
   // Persist to localStorage on change

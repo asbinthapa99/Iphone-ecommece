@@ -14,7 +14,7 @@ export function TradeInBanner() {
           Get up to 1 Lakh<br />for your trade-in.
         </h2>
         <p className="text-[15px] md:text-[16px] text-[#333] mb-8 font-medium">
-          Trade the tech you don't want for the cash you do.
+          Upgrade today with our &quot;Fair-Trade&quot; value promise. We offer the best trade-in prices in Nepal to help you jump to your next iPhone.
         </p>
         <Link
           href="/sell"

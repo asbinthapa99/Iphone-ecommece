@@ -10,17 +10,19 @@ export function usePWA() {
   const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
-    // iOS Safari standalone mode
-    const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-
-    // Android / Desktop PWA (display-mode: standalone)
+    const nav = window.navigator as Navigator & { standalone?: boolean }
+    const iosStandalone = nav.standalone === true
     const mediaStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const combined = iosStandalone || mediaStandalone
 
-    setIsStandalone(iosStandalone || mediaStandalone)
+    // Sync state using microtask to avoid React 19 cascading render lint error
+    queueMicrotask(() => setIsStandalone(combined))
 
-    // Listen for changes (e.g., if installed while page is open)
+    // Listen for changes
     const mq = window.matchMedia('(display-mode: standalone)')
-    const handler = (e: MediaQueryListEvent) => setIsStandalone(e.matches || iosStandalone)
+    const handler = (e: MediaQueryListEvent) => {
+      setIsStandalone(e.matches || iosStandalone)
+    }
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])

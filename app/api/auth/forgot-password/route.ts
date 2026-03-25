@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import { resetOtpEmail } from '@/lib/emails/reset-otp'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -32,9 +30,18 @@ export async function POST(req: NextRequest) {
 
   const { subject, html } = resetOtpEmail(otp, email)
 
-  if (process.env.RESEND_API_KEY && !process.env.RESEND_API_KEY.startsWith('re_your')) {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM ?? 'Inexa Nepal <orders@inexanepal.com>',
+  if (process.env.BREVO_SMTP_KEY) {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.BREVO_FROM_EMAIL,
+        pass: process.env.BREVO_SMTP_KEY,
+      },
+    })
+    await transporter.sendMail({
+      from: `"${process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'}" <${process.env.BREVO_FROM_EMAIL}>`,
       to: email,
       subject,
       html,

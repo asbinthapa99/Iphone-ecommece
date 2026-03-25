@@ -1,22 +1,37 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import type { Order } from '@/types'
 import { orderConfirmedEmail } from './emails/order-confirmed'
 import { paymentSuccessEmail } from './emails/payment-success'
 import { deliveryInProcessEmail } from './emails/delivery-in-process'
 import { deliveredEmail } from './emails/delivered'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM ?? 'Inexa Nepal <orders@inexanepal.com>'
 const SITE_URL = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
+function createTransport() {
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_FROM_EMAIL,
+      pass: process.env.BREVO_SMTP_KEY,
+    },
+  })
+}
+
 async function send(to: string, subject: string, html: string) {
-  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.startsWith('re_your')) {
-    // Dev mode — just log instead of sending
+  if (!process.env.BREVO_SMTP_KEY) {
     console.log(`[email] To: ${to} | Subject: ${subject}`)
     return
   }
   try {
-    await resend.emails.send({ from: FROM, to, subject, html })
+    const transporter = createTransport()
+    await transporter.sendMail({
+      from: `"${process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'}" <${process.env.BREVO_FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    })
   } catch (err) {
     console.error('[email] Failed to send:', err)
   }

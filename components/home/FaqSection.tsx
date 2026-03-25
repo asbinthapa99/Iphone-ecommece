@@ -25,13 +25,13 @@ const FAQS = [
   },
   {
     icon: ShieldCheck,
-    question: "Is the 3-month warranty comprehensive?",
-    answer: "Yes. Our 3-month warranty covers all functional defects. If the phone develops a hardware issue that wasn't caused by accidental damage or water exposure, we will fix or replace it with no questions asked.",
+    question: "Is the 6-month warranty comprehensive?",
+    answer: "Yes. Our 6-month warranty covers all functional defects. If the phone develops a hardware issue that wasn't caused by accidental damage or water exposure, we will fix or replace it with no questions asked.",
   },
   {
     icon: RefreshCcw,
     question: "Can I trade in my old phone?",
-    answer: "Absolutely! We offer instant quotes for your old devices. You can bring your phone to our store or use the 'Sell' feature on our website to offset the cost of your purchase.",
+    answer: "Absolutely! We offer instant quotes for your old devices. You can bring your phone to our store or use the &apos;Sell&apos; feature on our website to offset the cost of your purchase.",
   },
   {
     icon: BatteryCharging,
@@ -69,7 +69,7 @@ export function FaqSection() {
                 Frequently Asked<br className="hidden lg:block"/> Questions
               </h2>
               <p className="text-[#666] text-base leading-relaxed">
-                Can't find what you're looking for?<br />
+                Can&apos;t find what you&apos;re looking for?<br />
                 Please contact our customer support team.
               </p>
             </div>
