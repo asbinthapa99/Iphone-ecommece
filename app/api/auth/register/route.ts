@@ -14,16 +14,16 @@ export async function POST(req: NextRequest) {
 
   const existing = await sql`SELECT id FROM users WHERE email = ${email.toLowerCase().trim()}`
   if (existing.length > 0) {
-    return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 })
+    // Return 200 with neutral message — don't reveal whether email is registered
+    return NextResponse.json({ ok: true })
   }
 
   const hash = await bcrypt.hash(password, 12)
 
-  const rows = await sql`
+  await sql`
     INSERT INTO users (name, email, phone, password, provider)
     VALUES (${name ?? null}, ${email.toLowerCase().trim()}, ${phone ?? null}, ${hash}, 'credentials')
-    RETURNING id, name, email
   `
 
-  return NextResponse.json({ user: rows[0] }, { status: 201 })
+  return NextResponse.json({ ok: true }, { status: 201 })
 }

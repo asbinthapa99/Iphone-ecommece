@@ -63,8 +63,13 @@ export const authOptions: NextAuthOptions = {
     },
     jwt({ token, user, account }) {
       if (account) token.provider = account.provider
-      // Persist isAdmin from authorize() into the JWT
+      // Persist isAdmin from authorize() into the JWT (Credentials sign-in)
       if (user) token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false
+      // Also grant admin for Google OAuth if signed-in email matches ADMIN_EMAIL
+      if (account?.provider === 'google' && token.email) {
+        const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
+        if (adminEmail && token.email.toLowerCase() === adminEmail) token.isAdmin = true
+      }
       return token
     },
   },

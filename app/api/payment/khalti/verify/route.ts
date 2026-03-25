@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sql, initUsersTable } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -30,8 +31,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Update order payment status in Supabase here
-    // await updateOrderPayment(orderId, 'paid', pidx)
+    await initUsersTable()
+    await sql`
+      UPDATE orders
+      SET payment_status = 'paid',
+          payment_ref    = ${pidx},
+          status         = 'confirmed',
+          updated_at     = NOW()
+      WHERE id = ${orderId}
+    `
 
     return NextResponse.redirect(
       new URL(`/order/${orderId}/confirmation`, request.url)

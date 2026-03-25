@@ -1,48 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { Order, OrderStatus, PaymentStatus } from '@/types'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth'
+import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types'
 import { sendPaymentSuccess, sendDeliveryInProcess, sendDelivered } from '@/lib/email'
+import { sql, initUsersTable } from '@/lib/db'
 
-// Shared in-memory store (same module as route.ts in dev)
-declare const global: { __inexaOrders?: Order[] }
+function rowToOrder(row: Record<string, unknown>): Order {
+  return {
+    id: row.id as string,
+    orderNumber: row.order_number as string,
+    userId: row.user_id as string | undefined,
+    buyerName: row.buyer_name as string,
+    buyerPhone: row.buyer_phone as string,
+    buyerEmail: row.buyer_email as string,
+    deliveryAddress: row.delivery_address as string,
+    city: row.city as string,
+    paymentMethod: row.payment_method as PaymentMethod,
+    paymentStatus: row.payment_status as PaymentStatus,
+    paymentRef: row.payment_ref as string | undefined,
+    amount: row.amount as number,
+    warrantyExtended: row.warranty_extended as boolean,
+    status: row.status as OrderStatus,
+    notes: row.notes as string | undefined,
+    trackingNumber: row.tracking_number as string | undefined,
+    device: {
+      deviceId: row.device_id as string,
+      model: row.device_model as string,
+      storage: row.device_storage as string,
+      grade: row.device_grade as Order['device']['grade'],
+      price: row.device_price as number,
+      photo: row.device_photo as string | undefined,
+    },
+    createdAt: (row.created_at as Date).toISOString(),
+    updatedAt: (row.updated_at as Date).toISOString(),
+  }
+}
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-
-  // For demo, return a mock order so the UI works
-  const mockOrder: Order = {
-    id,
-    orderNumber: 'INX' + id.slice(0, 6).toUpperCase(),
-    buyerName: 'Demo User',
-    buyerPhone: '9800000000',
-    buyerEmail: 'demo@example.com',
-    deliveryAddress: 'Thamel, Kathmandu',
-    city: 'Kathmandu',
-    paymentMethod: 'esewa',
-    paymentStatus: 'pending',
-    amount: 43500,
-    warrantyExtended: false,
-    status: 'confirmed',
-    device: {
-      deviceId: '1',
-      model: 'iPhone 13',
-      storage: '128GB',
-      grade: 'A',
-      price: 43500,
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  return NextResponse.json({ order: mockOrder })
+  const { id } = await params
+  await initUsersTable()
+
+  const rows = await sql`SELECT * FROM orders WHERE id = ${id} LIMIT 1`
+  if (rows.length === 0) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  }
+
+  const order = rowToOrder(rows[0] as Record<string, unknown>)
+  const isAdmin = !!(session.user as { isAdmin?: boolean }).isAdmin
+
+  // Non-admins can only view their own orders
+  if (!isAdmin && order.buyerEmail !== session.user.email) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  return NextResponse.json({ order })
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (!(session.user as { isAdmin?: boolean }).isAdmin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { id } = await params
   const body = await request.json()
   const { status, paymentStatus, trackingNumber, notes } = body as {
@@ -52,36 +85,30 @@ export async function PATCH(
     notes?: string
   }
 
-  const updatedOrder: Order = {
-    id,
-    orderNumber: 'INX' + id.slice(0, 6).toUpperCase(),
-    buyerName: body.buyerName ?? 'Customer',
-    buyerPhone: body.buyerPhone ?? '',
-    buyerEmail: body.buyerEmail ?? '',
-    deliveryAddress: body.deliveryAddress ?? '',
-    city: body.city ?? 'Kathmandu',
-    paymentMethod: body.paymentMethod ?? 'cod',
-    paymentStatus: paymentStatus ?? body.paymentStatus ?? 'pending',
-    amount: body.amount ?? 0,
-    warrantyExtended: body.warrantyExtended ?? false,
-    status: status ?? body.status ?? 'pending',
-    trackingNumber,
-    notes,
-    device: body.device ?? { deviceId: '', model: 'Unknown', storage: '', grade: 'A', price: 0 },
-    createdAt: body.createdAt ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  await initUsersTable()
+
+  // Fetch existing to merge + send correct emails
+  const existing = await sql`SELECT * FROM orders WHERE id = ${id} LIMIT 1`
+  if (existing.length === 0) {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
-  // Send email based on what changed
-  if (paymentStatus === 'paid') {
-    sendPaymentSuccess(updatedOrder).catch(console.error)
-  }
-  if (status === 'shipped') {
-    sendDeliveryInProcess({ ...updatedOrder, trackingNumber }).catch(console.error)
-  }
-  if (status === 'delivered') {
-    sendDelivered(updatedOrder).catch(console.error)
-  }
+  const rows = await sql`
+    UPDATE orders SET
+      status           = COALESCE(${status ?? null}, status),
+      payment_status   = COALESCE(${paymentStatus ?? null}, payment_status),
+      tracking_number  = COALESCE(${trackingNumber ?? null}, tracking_number),
+      notes            = COALESCE(${notes ?? null}, notes),
+      updated_at       = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `
 
-  return NextResponse.json({ order: updatedOrder })
+  const order = rowToOrder(rows[0] as Record<string, unknown>)
+
+  if (paymentStatus === 'paid') sendPaymentSuccess(order).catch(console.error)
+  if (status === 'shipped') sendDeliveryInProcess({ ...order, trackingNumber }).catch(console.error)
+  if (status === 'delivered') sendDelivered(order).catch(console.error)
+
+  return NextResponse.json({ order })
 }

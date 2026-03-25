@@ -3,7 +3,8 @@ import { sql, initUsersTable } from '@/lib/db'
 import { resetOtpEmail } from '@/lib/emails/reset-otp'
 
 function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  // 8 cryptographically random digits — 100x harder to brute force than 6
+  return crypto.getRandomValues(new Uint32Array(1))[0] % 90000000 + 10000000 + ''
 }
 
 export async function POST(req: NextRequest) {

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MOCK_DEVICES } from '@/lib/mock-data'
 import type { ImeiCheckResult } from '@/types'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  const { allowed } = await rateLimit(`imei:${ip}`, 20, 60 * 1000) // 20 / min
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
+  }
+
   const { imei } = await request.json()
 
   if (!imei || imei.length < 15 || imei.length > 17) {
