@@ -26,7 +26,7 @@ const PAYMENT_OPTIONS: {
   {
     id: 'esewa',
     label: 'eSewa',
-    sub: 'Instant digital wallet',
+    sub: 'Coming soon',
     bg: '#fafafa',
     border: '#e0e0dc',
     activeBg: '#f0faf6',
@@ -373,6 +373,7 @@ export default function CheckoutPage() {
                 <div className="px-5 py-4 space-y-2.5">
                   {PAYMENT_OPTIONS.map((opt) => {
                     const active = paymentMethod === opt.id
+                    const isEsewa = opt.id === 'esewa'
                     const activeColors: Record<PaymentMethod, string> = {
                       esewa: '#1D9E75',
                       khalti: '#5c2d91',
@@ -381,30 +382,62 @@ export default function CheckoutPage() {
                     }
                     const color = activeColors[opt.id]
                     return (
-                      <div
-                        key={opt.id}
-                        onClick={() => setPaymentMethod(opt.id)}
-                        className="flex items-center gap-3 rounded-[12px] p-3.5 cursor-pointer transition-all duration-150"
-                        style={{
-                          border: `1.5px solid ${active ? color : '#e8e8e4'}`,
-                          background: active ? opt.activeBg : opt.bg,
-                        }}
-                      >
-                        {opt.icon}
-                        <div className="flex-1">
-                          <p style={{ fontSize: 14, fontWeight: 700, color: '#060d0a' }}>{opt.label}</p>
-                          <p style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{opt.sub}</p>
-                        </div>
+                      <div key={opt.id}>
                         <div
+                          onClick={() => setPaymentMethod(opt.id)}
+                          className="flex items-center gap-3 rounded-[12px] p-3.5 cursor-pointer transition-all duration-150"
                           style={{
-                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                            border: `2px solid ${active ? color : '#ddd'}`,
-                            background: active ? color : '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: `1.5px solid ${active ? color : '#e8e8e4'}`,
+                            background: active ? opt.activeBg : opt.bg,
+                            opacity: isEsewa ? 0.7 : 1,
                           }}
                         >
-                          {active && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                          {opt.icon}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p style={{ fontSize: 14, fontWeight: 700, color: '#060d0a' }}>{opt.label}</p>
+                              {isEsewa && (
+                                <span style={{
+                                  fontSize: 9, fontWeight: 700, color: '#92400e',
+                                  background: '#fef3c7', border: '1px solid #fde68a',
+                                  borderRadius: 4, padding: '1px 5px', letterSpacing: '0.05em',
+                                  textTransform: 'uppercase',
+                                }}>
+                                  Coming Soon
+                                </span>
+                              )}
+                            </div>
+                            <p style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{opt.sub}</p>
+                          </div>
+                          <div
+                            style={{
+                              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                              border: `2px solid ${active ? color : '#ddd'}`,
+                              background: active ? color : '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {active && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                          </div>
                         </div>
+
+                        {/* eSewa selected — show notice */}
+                        {isEsewa && active && (
+                          <div
+                            className="flex items-start gap-2 rounded-[10px] px-3.5 py-3 mt-1.5"
+                            style={{ background: '#fffbeb', border: '1px solid #fde68a' }}
+                          >
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
+                            <div>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: '#92400e' }}>
+                                eSewa integration coming soon
+                              </p>
+                              <p style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
+                                Please select Khalti or Cash on Delivery to complete your order.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
