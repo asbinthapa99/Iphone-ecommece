@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { SITE_URL } from '@/lib/seo'
+import { getAvailableDevices } from '@/lib/devices'
 
 const STATIC_PAGES: { url: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }[] = [
   { url: '/', priority: 1.0, changeFrequency: 'daily' },
@@ -18,7 +18,7 @@ const STATIC_PAGES: { url: string; priority: number; changeFrequency: MetadataRo
   { url: '/contact', priority: 0.4, changeFrequency: 'monthly' },
 ]
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
   const staticEntries: MetadataRoute.Sitemap = STATIC_PAGES.map(({ url, priority, changeFrequency }) => ({
@@ -28,8 +28,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority,
   }))
 
-  const productEntries: MetadataRoute.Sitemap = MOCK_DEVICES
-    .filter((d) => d.status === 'available')
+  const devices = await getAvailableDevices()
+  const productEntries: MetadataRoute.Sitemap = devices
     .map((d) => ({
       url: `${SITE_URL}/phones/${d.id}`,
       lastModified: now,

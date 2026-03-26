@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { MOCK_DEVICES, INSPECTION_POINTS } from '@/lib/mock-data'
+import { INSPECTION_POINTS } from '@/lib/mock-data'
 import { GradeBadge } from '@/components/trust/GradeBadge'
 import { BatteryBar } from '@/components/trust/BatteryBar'
 import { ImeiStatusBadge } from '@/components/trust/ImeiStatus'
@@ -13,6 +13,7 @@ import { BuyNowButton } from '@/components/phones/BuyNowButton'
 import { ProductReviews } from '@/components/phones/ProductReviews'
 import { ProductSpecs } from '@/components/phones/ProductSpecs'
 import { productTitle, productDescription, productKeywords, productJsonLd, breadcrumbJsonLd, SITE_URL } from '@/lib/seo'
+import { getAllDeviceIds, getAvailableDevices, getDeviceById } from '@/lib/devices'
 
 // ── SEO ──────────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const device = MOCK_DEVICES.find((d) => d.id === id)
+  const device = await getDeviceById(id)
   if (!device) return {}
 
   const title = productTitle(device)
@@ -56,7 +57,8 @@ export async function generateMetadata({
 
 // Pre-build every product page at deploy time — zero server work per request
 export async function generateStaticParams() {
-  return MOCK_DEVICES.map((d) => ({ id: d.id }))
+  const ids = await getAllDeviceIds()
+  return ids.map((id) => ({ id }))
 }
 
 // Re-generate pages in the background every 5 minutes (ISR)
@@ -68,7 +70,7 @@ export default async function ProductPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const device = MOCK_DEVICES.find((d) => d.id === id)
+  const device = await getDeviceById(id)
   if (!device) notFound()
 
   const savings = device.originalPrice ? device.originalPrice - device.price : null
@@ -76,9 +78,16 @@ export default async function ProductPage({
 
   // Related phones: same series, different variants, exclude current
   const seriesBase = device.model.replace(/ (Pro Max|Pro|Plus|mini)$/, '')
-  const related = MOCK_DEVICES.filter(
-    (d) => d.id !== device.id && d.status === 'available' && (d.model.startsWith(seriesBase) || d.grade === device.grade)
+  const availableDevices = await getAvailableDevices()
+  const related = availableDevices.filter(
+    (d) =>
+      d.id !== device.id &&
+      d.status === 'available' &&
+      d.category === device.category &&
+      (d.model.startsWith(seriesBase) || d.grade === device.grade)
   ).slice(0, 4)
+  const ratingValue = typeof device.rating === 'number' ? device.rating : 4.8
+  const reviewCount = typeof device.reviewCount === 'number' ? device.reviewCount : 120
 
   const productLd = productJsonLd(device)
   const breadcrumbLd = breadcrumbJsonLd(device)
@@ -88,6 +97,17 @@ export default async function ProductPage({
       {/* JSON-LD structured data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+
+      {/* Breadcrumbs */}
+      <nav aria-label="Breadcrumb" className="mb-3">
+        <ol className="flex items-center gap-2 text-[12px]" style={{ color: '#888' }}>
+          <li><Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>Home</Link></li>
+          <li>/</li>
+          <li><Link href="/phones" style={{ textDecoration: 'none', color: 'inherit' }}>Phones</Link></li>
+          <li>/</li>
+          <li style={{ color: '#444', fontWeight: 600 }}>{device.model}</li>
+        </ol>
+      </nav>
 
       {/* Back */}
       <Link
@@ -146,8 +166,8 @@ export default async function ProductPage({
             </h1>
             <div className="flex items-center gap-1 text-[#f59e0b] bg-[#fefce8] px-2.5 py-1 rounded-full">
               <Star size={14} fill="currentColor" />
-              <span className="text-[13px] font-bold text-gray-800 ml-1">4.8</span>
-              <span className="text-[12px] text-gray-500">(120)</span>
+              <span className="text-[13px] font-bold text-gray-800 ml-1">{ratingValue.toFixed(1)}</span>
+              <span className="text-[12px] text-gray-500">({reviewCount})</span>
             </div>
           </div>
           <p className="text-[13px] mb-4" style={{ color: '#888' }}>

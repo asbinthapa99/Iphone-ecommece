@@ -1,38 +1,74 @@
 'use client'
 
-import { useState, useDeferredValue } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { PhoneCard } from '@/components/phones/PhoneCard'
 import { FilterChips } from '@/components/phones/FilterChips'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { SlidersHorizontal, Search, X } from 'lucide-react'
+import type { Device } from '@/types'
 
 export function PhonesBrowse() {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState<'price-asc' | 'price-desc' | 'battery'>('price-asc')
   const [query, setQuery] = useState('')
+  const [devices, setDevices] = useState<Device[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Deferred values — input stays instant, heavy grid re-render runs at idle time
   const deferredQuery = useDeferredValue(query)
   const deferredFilter = useDeferredValue(filter)
   const deferredSort = useDeferredValue(sort)
 
-  const filtered = MOCK_DEVICES
-    .filter((d) => d.category === 'iphone')
-    .filter((d) => {
-      if (deferredQuery.trim()) {
-        const q = deferredQuery.toLowerCase()
-        return d.model.toLowerCase().includes(q) || d.storage.toLowerCase().includes(q) || d.color.toLowerCase().includes(q)
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
+    async function loadDevices() {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+
+        const res = await fetch('/api/devices?category=iphone', { signal: controller.signal })
+        if (!res.ok) {
+          throw new Error(`Failed to load iPhones (${res.status})`)
+        }
+
+        const data = await res.json() as { devices?: Device[] }
+        setDevices(Array.isArray(data.devices) ? data.devices : [])
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        setLoadError('Unable to load phones right now. Please try again.')
+      } finally {
+        setIsLoading(false)
+        clearTimeout(timeout)
       }
-      if (deferredFilter === 'all') return true
-      if (deferredFilter === 'grade-a') return d.grade === 'A'
-      if (deferredFilter === 'under-50k') return d.price < 50000
-      return d.model.startsWith(deferredFilter)
-    })
-    .sort((a, b) => {
-      if (deferredSort === 'price-asc') return a.price - b.price
-      if (deferredSort === 'price-desc') return b.price - a.price
-      return b.batteryHealth - a.batteryHealth
-    })
+    }
+
+    void loadDevices()
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    return devices
+      .filter((d) => {
+        if (deferredQuery.trim()) {
+          const q = deferredQuery.toLowerCase()
+          return d.model.toLowerCase().includes(q) || d.storage.toLowerCase().includes(q) || d.color.toLowerCase().includes(q)
+        }
+        if (deferredFilter === 'all') return true
+        if (deferredFilter === 'grade-a') return d.grade === 'A'
+        if (deferredFilter === 'under-50k') return d.price < 50000
+        return d.model.startsWith(deferredFilter)
+      })
+      .sort((a, b) => {
+        if (deferredSort === 'price-asc') return a.price - b.price
+        if (deferredSort === 'price-desc') return b.price - a.price
+        return b.batteryHealth - a.batteryHealth
+      })
+  }, [devices, deferredFilter, deferredQuery, deferredSort])
 
   return (
     <>
@@ -84,7 +120,15 @@ export function PhonesBrowse() {
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+          <p style={{ fontSize: 16, color: '#999' }}>Loading phones...</p>
+        </div>
+      ) : loadError ? (
+        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+          <p style={{ fontSize: 16, color: '#999' }}>{loadError}</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="max-w-6xl mx-auto px-4 py-20 text-center">
           <p style={{ fontSize: 48, marginBottom: 12 }}>📱</p>
           <p style={{ fontSize: 16, color: '#999' }}>No phones match this filter.</p>

@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { PhoneCard } from '@/components/phones/PhoneCard'
 import { Search, SlidersHorizontal, X, ArrowLeft } from 'lucide-react'
-import type { ProductCategory } from '@/types'
+import type { Device, ProductCategory } from '@/types'
 
 export const SLUG_TO_CATEGORY: Record<string, ProductCategory | 'deals'> = {
   macbook: 'macbook',
@@ -55,6 +54,81 @@ export function CategoryBrowse({ slug }: Props) {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'price-asc' | 'price-desc' | 'battery'>('price-asc')
   const [filter, setFilter] = useState('all')
+  const [devices, setDevices] = useState<Device[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const deferredQuery = useDeferredValue(query)
+  const deferredSort = useDeferredValue(sort)
+  const deferredFilter = useDeferredValue(filter)
+
+  useEffect(() => {
+    if (!category) {
+      setDevices([])
+      setIsLoading(false)
+      setLoadError(null)
+      return
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
+    async function loadDevices() {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const endpoint = category === 'deals'
+          ? '/api/devices'
+          : `/api/devices?category=${encodeURIComponent(category)}`
+        const res = await fetch(endpoint, { signal: controller.signal })
+
+        if (!res.ok) {
+          throw new Error(`Failed to load products (${res.status})`)
+        }
+
+        const data = await res.json() as { devices?: Device[] }
+        setDevices(Array.isArray(data.devices) ? data.devices : [])
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        setLoadError('Unable to load products right now. Please try again.')
+      } finally {
+        setIsLoading(false)
+        clearTimeout(timeout)
+      }
+    }
+
+    void loadDevices()
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [category])
+
+  const products = useMemo(() => {
+    if (!category) return []
+    return devices
+      .filter((d) => (category === 'deals' ? d.originalPrice != null && d.originalPrice > d.price : true))
+      .filter((d) => {
+        if (deferredQuery.trim()) {
+          const q = deferredQuery.toLowerCase()
+          return (
+            d.model.toLowerCase().includes(q) ||
+            d.storage.toLowerCase().includes(q) ||
+            d.color.toLowerCase().includes(q)
+          )
+        }
+        if (deferredFilter === 'all') return true
+        if (deferredFilter === 'grade-a') return d.grade === 'A'
+        if (deferredFilter === 'under-50k') return d.price < 50000
+        if (deferredFilter === 'under-100k') return d.price < 100000
+        return true
+      })
+      .sort((a, b) => {
+        if (deferredSort === 'price-asc') return a.price - b.price
+        if (deferredSort === 'price-desc') return b.price - a.price
+        return b.batteryHealth - a.batteryHealth
+      })
+  }, [category, deferredFilter, deferredQuery, deferredSort, devices])
 
   if (!category) {
     return (
@@ -69,32 +143,6 @@ export function CategoryBrowse({ slug }: Props) {
       </main>
     )
   }
-
-  const products = MOCK_DEVICES
-    .filter((d) => {
-      if (category === 'deals') return d.originalPrice != null && d.originalPrice > d.price
-      return d.category === category
-    })
-    .filter((d) => {
-      if (query.trim()) {
-        const q = query.toLowerCase()
-        return (
-          d.model.toLowerCase().includes(q) ||
-          d.storage.toLowerCase().includes(q) ||
-          d.color.toLowerCase().includes(q)
-        )
-      }
-      if (filter === 'all') return true
-      if (filter === 'grade-a') return d.grade === 'A'
-      if (filter === 'under-50k') return d.price < 50000
-      if (filter === 'under-100k') return d.price < 100000
-      return true
-    })
-    .sort((a, b) => {
-      if (sort === 'price-asc') return a.price - b.price
-      if (sort === 'price-desc') return b.price - a.price
-      return b.batteryHealth - a.batteryHealth
-    })
 
   return (
     <main style={{ background: '#ffffff', minHeight: '100vh' }}>
@@ -178,7 +226,15 @@ export function CategoryBrowse({ slug }: Props) {
       </div>
 
       {/* Grid */}
-      {products.length === 0 ? (
+      {isLoading ? (
+        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+          <p style={{ fontSize: 16, color: '#999' }}>Loading products...</p>
+        </div>
+      ) : loadError ? (
+        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+          <p style={{ fontSize: 16, color: '#999' }}>{loadError}</p>
+        </div>
+      ) : products.length === 0 ? (
         <div className="max-w-6xl mx-auto px-4 py-20 text-center">
           <p style={{ fontSize: 48, marginBottom: 12 }}>🔍</p>
           <p style={{ fontSize: 16, color: '#999' }}>No products match your search.</p>

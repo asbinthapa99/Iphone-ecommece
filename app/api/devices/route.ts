@@ -101,7 +101,10 @@ export async function GET(request: NextRequest) {
     args
   ) as unknown as DeviceRow[]
 
-  return NextResponse.json({ devices: rows.map(rowToDevice) })
+  return NextResponse.json(
+    { devices: rows.map(rowToDevice) },
+    { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' } }
+  )
 }
 
 export async function POST(request: NextRequest) {

@@ -103,6 +103,23 @@ export function productKeywords(device: Device): string {
 export function productJsonLd(device: Device) {
   const brand = getBrand(device)
   const condition = device.status === 'available' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'
+  const additionalProperty = [
+    { '@type': 'PropertyValue', name: 'Grade', value: device.grade },
+    { '@type': 'PropertyValue', name: 'Battery Health', value: `${device.batteryHealth}%` },
+    { '@type': 'PropertyValue', name: 'Storage', value: device.storage },
+    { '@type': 'PropertyValue', name: 'Color', value: device.color },
+    { '@type': 'PropertyValue', name: 'IMEI Status', value: device.imeiStatus },
+  ]
+  const aggregateRating =
+    typeof device.rating === 'number' && typeof device.reviewCount === 'number' && device.reviewCount > 0
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: Number(device.rating.toFixed(1)),
+          reviewCount: device.reviewCount,
+          bestRating: 5,
+          worstRating: 1,
+        }
+      : undefined
 
   return {
     '@context': 'https://schema.org',
@@ -113,6 +130,9 @@ export function productJsonLd(device: Device) {
     sku: `INX-${device.id}`,
     brand: { '@type': 'Brand', name: brand },
     condition: 'https://schema.org/UsedCondition',
+    category: CATEGORY_SEO[device.category]?.label ?? 'Gadget',
+    additionalProperty,
+    aggregateRating,
     offers: {
       '@type': 'Offer',
       price: device.price,

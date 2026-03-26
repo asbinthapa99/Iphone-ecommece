@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, ShieldCheck, Clock, Truck, Star, BadgeCheck, Smartphone, CalendarDays, SearchCheck } from 'lucide-react'
 import { PhoneCard } from '@/components/phones/PhoneCard'
 import { FilterChips } from '@/components/phones/FilterChips'
@@ -11,9 +11,9 @@ import { HowItWorks } from '@/components/home/HowItWorks'
 import { FaqSection } from '@/components/home/FaqSection'
 import { AvailableBrands } from '@/components/home/AvailableBrands'
 import { NewsletterBanner } from '@/components/home/NewsletterBanner'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { FadeIn, FadeInStagger, FadeInChild } from '@/components/ui/FadeIn'
 import { InstallAppButton } from '@/components/ui/InstallAppButton'
+import type { Device } from '@/types'
 
 const TRUST = [
   { icon: ShieldCheck, label: '100% IMEI Verified' },
@@ -31,13 +31,48 @@ const STATS = [
 
 export default function HomePage() {
   const [filter, setFilter] = useState('all')
+  const [devices, setDevices] = useState<Device[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const filtered = MOCK_DEVICES.filter((d) => {
-    if (filter === 'all') return true
-    if (filter === 'grade-a') return d.grade === 'A'
-    if (filter === 'under-50k') return d.price < 50000
-    return d.model.startsWith(filter)
-  })
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
+    async function loadDevices() {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const res = await fetch('/api/devices?category=iphone', { signal: controller.signal })
+        if (!res.ok) {
+          throw new Error(`Failed to load phones (${res.status})`)
+        }
+        const data = await res.json() as { devices?: Device[] }
+        setDevices(Array.isArray(data.devices) ? data.devices : [])
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        setLoadError('Unable to load phones right now.')
+      } finally {
+        setIsLoading(false)
+        clearTimeout(timeout)
+      }
+    }
+
+    void loadDevices()
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    return devices.filter((d) => {
+      if (filter === 'all') return true
+      if (filter === 'grade-a') return d.grade === 'A'
+      if (filter === 'under-50k') return d.price < 50000
+      return d.model.startsWith(filter)
+    })
+  }, [devices, filter])
 
   return (
     <main>
@@ -222,7 +257,7 @@ export default function HomePage() {
                 Available now
               </h2>
               <p style={{ fontSize: 12, color: '#999', marginTop: 3 }}>
-                {filtered.length} phones · All inspected & verified
+                {isLoading ? 'Loading phones...' : `${filtered.length} phones · All inspected & verified`}
               </p>
             </div>
             <Link href="/phones" className="flex items-center gap-1" style={{ fontSize: 12, fontWeight: 600, color: '#1D9E75', textDecoration: 'none' }}>
@@ -234,7 +269,19 @@ export default function HomePage() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="max-w-6xl mx-auto px-5 pb-10">
+            <div className="text-center py-14 rounded-[14px]" style={{ background: '#fafaf8', border: '0.5px solid #ebebeb' }}>
+              <p style={{ fontSize: 14, color: '#999' }}>Loading phones...</p>
+            </div>
+          </div>
+        ) : loadError ? (
+          <div className="max-w-6xl mx-auto px-5 pb-10">
+            <div className="text-center py-14 rounded-[14px]" style={{ background: '#fafaf8', border: '0.5px solid #ebebeb' }}>
+              <p style={{ fontSize: 14, color: '#999' }}>{loadError}</p>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="max-w-6xl mx-auto px-5 pb-10">
             <div className="text-center py-14 rounded-[14px]" style={{ background: '#fafaf8', border: '0.5px solid #ebebeb' }}>
               <p style={{ fontSize: 14, color: '#999' }}>No phones match this filter.</p>

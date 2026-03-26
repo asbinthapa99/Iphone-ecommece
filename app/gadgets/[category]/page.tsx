@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { CategoryBrowse, SLUG_TO_CATEGORY, CATEGORY_LABELS } from '@/components/gadgets/CategoryBrowse'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { categoryTitle, categoryDescription, CATEGORY_SEO, SITE_URL } from '@/lib/seo'
 import type { ProductCategory } from '@/types'
+import { getAvailableDevices } from '@/lib/devices'
 
 const SLUG_HREFS: Record<string, string> = {
   macbook: '/gadgets/macbook',
@@ -29,7 +29,7 @@ export async function generateMetadata({
     }
   }
 
-  const devices = MOCK_DEVICES.filter((d) => d.category === productCategory)
+  const devices = await getAvailableDevices(productCategory as ProductCategory)
   const title = categoryTitle(productCategory as ProductCategory, devices.length)
   const description = categoryDescription(productCategory as ProductCategory, devices)
   const keywords = CATEGORY_SEO[productCategory as ProductCategory]?.keywords.join(', ') ?? ''
@@ -62,5 +62,30 @@ export default async function GadgetCategoryPage({
   params: Promise<{ category: string }>
 }) {
   const { category: slug } = await params
-  return <CategoryBrowse slug={slug} />
+  const label = CATEGORY_LABELS[slug] ?? (slug.charAt(0).toUpperCase() + slug.slice(1))
+  const href = SLUG_HREFS[slug] ?? `/gadgets/${slug}`
+
+  const collectionLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${label} in Nepal`,
+    url: `${SITE_URL}${href}`,
+  }
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Gadgets', item: `${SITE_URL}/gadgets` },
+      { '@type': 'ListItem', position: 3, name: label, item: `${SITE_URL}${href}` },
+    ],
+  }
+
+  return (
+    <main>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <CategoryBrowse slug={slug} />
+    </main>
+  )
 }
