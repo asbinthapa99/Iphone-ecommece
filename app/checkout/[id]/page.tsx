@@ -5,12 +5,11 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import {
   ShieldCheck, ArrowLeft, ArrowRight, Loader2,
   MapPin, Phone, Mail, User, StickyNote, CheckCircle2, Truck, Lock,
 } from 'lucide-react'
-import type { PaymentMethod } from '@/types'
+import type { Device, PaymentMethod } from '@/types'
 
 // ── Payment options ───────────────────────────────────────────────────────────
 
@@ -121,7 +120,17 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { user } = useAuth()
 
-  const device = MOCK_DEVICES.find((d) => d.id === id)
+  const [device, setDevice] = useState<Device | null>(null)
+  const [deviceLoading, setDeviceLoading] = useState(true)
+
+  useEffect(() => {
+    if (!id) return
+    fetch(`/api/devices/${id}`)
+      .then((r) => r.json())
+      .then((data) => setDevice(data.device ?? null))
+      .catch(() => setDevice(null))
+      .finally(() => setDeviceLoading(false))
+  }, [id])
 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -149,6 +158,14 @@ export default function CheckoutPage() {
         .catch(console.error)
     }
   }, [user])
+
+  if (deviceLoading) {
+    return (
+      <main className="max-w-lg mx-auto px-4 py-8 flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin" color="#1D9E75" />
+      </main>
+    )
+  }
 
   if (!device) {
     return (

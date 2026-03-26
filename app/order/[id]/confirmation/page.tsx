@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, Package, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Package, ArrowRight, Banknote } from 'lucide-react'
 import { PaymentBadges } from '@/components/ui/PaymentBadges'
 import type { Order } from '@/types'
 
@@ -42,6 +42,23 @@ export default function OrderConfirmationPage() {
         >
           Thank you for your purchase. Our team will contact you to confirm delivery.
         </p>
+
+        {order?.paymentMethod === 'cod' && (
+          <div
+            className="flex items-start gap-3 rounded-[14px] p-4 mb-5 text-left"
+            style={{ background: '#fffbeb', border: '1px solid #fde68a' }}
+          >
+            <Banknote size={18} color="#d97706" className="shrink-0 mt-0.5" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 3 }}>
+                Cash on Delivery
+              </p>
+              <p style={{ fontSize: 12, color: '#b45309', lineHeight: 1.6 }}>
+                Have <strong>NPR {order.amount.toLocaleString()}</strong> ready when our delivery agent arrives. Cash only at the door.
+              </p>
+            </div>
+          </div>
+        )}
 
         {order && (
           <div

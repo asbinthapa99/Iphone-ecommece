@@ -141,12 +141,25 @@ export async function POST(request: NextRequest) {
     specs?: unknown
   }
 
-  if (!body.model || !body.category || !body.storage || !body.grade || !body.status || !body.imei) {
+  const category = typeof body.category === 'string' ? body.category.trim().toLowerCase() : ''
+  const model = typeof body.model === 'string' ? body.model.trim() : ''
+  const storage = typeof body.storage === 'string' ? body.storage.trim() : ''
+  const color = typeof body.color === 'string' ? body.color.trim() : ''
+  const grade = typeof body.grade === 'string' ? body.grade.trim() : ''
+  const status = typeof body.status === 'string' ? body.status.trim() : ''
+  const imei = typeof body.imei === 'string' ? body.imei.trim() : ''
+  const requiresImei = category === 'iphone' || category === 'android'
+
+  if (!model || !category || !storage || !grade || !status) {
     return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
+  }
+  if (requiresImei && !imei) {
+    return NextResponse.json({ error: 'IMEI is required for phone products.' }, { status: 400 })
   }
   if (!Number.isFinite(body.price) || body.price <= 0) {
     return NextResponse.json({ error: 'Price must be a positive number.' }, { status: 400 })
   }
+  const safeImei = imei || `NA-${Date.now().toString(36)}`
 
   const id = `d_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
   const rows = await sql`
@@ -154,9 +167,9 @@ export async function POST(request: NextRequest) {
       id, category, model, storage, color, grade, battery_health, price, original_price,
       imei, imei_status, icloud_locked, status, photos, description, specs, created_at, updated_at
     ) VALUES (
-      ${id}, ${body.category}, ${body.model.trim()}, ${body.storage.trim()}, ${body.color.trim()},
-      ${body.grade}, ${body.batteryHealth}, ${body.price}, ${body.originalPrice ?? null},
-      ${body.imei.trim()}, ${body.imeiStatus ?? 'clean'}, ${!!body.icloudLocked}, ${body.status},
+      ${id}, ${category}, ${model}, ${storage}, ${color},
+      ${grade}, ${body.batteryHealth}, ${body.price}, ${body.originalPrice ?? null},
+      ${safeImei}, ${body.imeiStatus ?? 'clean'}, ${!!body.icloudLocked}, ${status},
       ${JSON.stringify(body.photos ?? [])}::jsonb, ${body.description?.trim() ?? null},
       ${body.specs ? JSON.stringify(body.specs) : null}::jsonb, NOW(), NOW()
     )
