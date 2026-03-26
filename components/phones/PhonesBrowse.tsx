@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { PhoneCard } from '@/components/phones/PhoneCard'
 import { FilterChips } from '@/components/phones/FilterChips'
-import { SlidersHorizontal, Search, X } from 'lucide-react'
+import { SlidersHorizontal, Search, X, ArrowLeft } from 'lucide-react'
 import type { Device } from '@/types'
 
 export function PhonesBrowse() {
@@ -76,13 +77,23 @@ export function PhonesBrowse() {
       <div style={{ borderBottom: '1px solid #ebebeb', background: '#fff' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 style={{ fontSize: 'clamp(22px,5vw,30px)', fontWeight: 800, color: '#060d0a', letterSpacing: '-0.8px' }}>
-                All iPhones
-              </h1>
-              <p style={{ fontSize: 13, color: '#999', marginTop: 3 }}>
-                {filtered.length} available · All inspected
-              </p>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/gadgets"
+                aria-label="Back to gadgets"
+                className="flex items-center justify-center rounded-[10px] shrink-0"
+                style={{ width: 36, height: 36, border: '0.5px solid #e0e0dc', background: '#fff' }}
+              >
+                <ArrowLeft size={14} color="#444" />
+              </Link>
+              <div>
+                <h1 style={{ fontSize: 'clamp(22px,5vw,30px)', fontWeight: 800, color: '#060d0a', letterSpacing: '-0.8px' }}>
+                  All iPhones
+                </h1>
+                <p style={{ fontSize: 13, color: '#999', marginTop: 3 }}>
+                  {filtered.length} available · All inspected
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} color="#999" />

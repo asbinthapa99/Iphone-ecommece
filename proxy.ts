@@ -8,7 +8,7 @@ const RATE_LIMIT_RULES: Record<string, { limit: number; windowMs: number }> = {
   '/api/auth/register':       { limit: 5,  windowMs: 10 * 60 * 1000 }, // 5 / 10 min
   '/api/auth/forgot-password':{ limit: 3,  windowMs: 15 * 60 * 1000 }, // 3 / 15 min
   '/api/auth/reset-password': { limit: 5,  windowMs: 10 * 60 * 1000 }, // 5 / 10 min
-  '/api/auth/callback':       { limit: 10, windowMs:  5 * 60 * 1000 }, // 10 / 5 min (login)
+  '/api/auth/signin':         { limit: 10, windowMs:  5 * 60 * 1000 }, // 10 / 5 min (login)
 }
 
 export async function proxy(req: NextRequest) {
@@ -66,6 +66,6 @@ export const config = {
     '/api/auth/register',
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
-    '/api/auth/callback',
+    '/api/auth/signin',
   ],
 }
