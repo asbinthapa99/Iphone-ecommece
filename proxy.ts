@@ -2,6 +2,7 @@ import { getToken } from 'next-auth/jwt'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 // Rate limit rules per route
 const RATE_LIMIT_RULES: Record<string, { limit: number; windowMs: number }> = {
@@ -53,7 +54,8 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  if (!token.isAdmin) {
+  const tokenEmail = typeof token.email === 'string' ? token.email : ''
+  if (!isPrimaryAdminEmail(tokenEmail)) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 

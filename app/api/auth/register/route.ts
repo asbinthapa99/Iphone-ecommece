@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { sql } from '@/lib/db'
+import { initUsersTable, sql } from '@/lib/db'
 import { validatePasswordStrength } from '@/lib/password'
+import { sendWelcomeEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
+  await initUsersTable()
   let payload: unknown
   try {
     payload = await req.json()
@@ -57,6 +59,8 @@ export async function POST(req: NextRequest) {
     INSERT INTO users (name, email, phone, password, provider)
     VALUES (${normalizedName || null}, ${normalizedEmail}, ${normalizedPhone || null}, ${hash}, 'credentials')
   `
+
+  sendWelcomeEmail(normalizedEmail, normalizedName || null).catch(console.error)
 
   return NextResponse.json({ ok: true }, { status: 201 })
 }

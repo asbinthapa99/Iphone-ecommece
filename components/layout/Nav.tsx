@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
-import { Menu, X, User, LogOut, ShieldCheck, Globe, ShoppingBag } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Menu, X, User, LogOut, ShieldCheck, Globe, ShoppingBag, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useCart } from '@/lib/cart'
 
@@ -23,6 +23,7 @@ export function Nav() {
   const [open, setOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -30,10 +31,15 @@ export function Nav() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Close dropdown when clicking outside — uses ref so it never races with open
   useEffect(() => {
-    const close = () => setUserMenuOpen(false)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleSignOut = async () => {
@@ -50,7 +56,7 @@ export function Nav() {
     // On mobile, MobileBottomNav replaces the desktop nav entirely
     <div className="hidden md:block">
       <div
-        className="pwa-hide fixed left-0 right-0 z-50 flex justify-center px-4 pointer-events-none transition-all duration-300"
+        className="pwa-hide fixed left-0 right-0 z-50 flex justify-center px-4 transition-all duration-300"
         style={{ top: scrolled ? 16 : 56 }}
       >
         <nav
@@ -121,8 +127,10 @@ export function Nav() {
               {loading ? (
                 <div style={{ width: 72, height: 36, borderRadius: 100, background: '#f0f0ee' }} />
               ) : user ? (
-                <div style={{ position: 'relative' }} onClick={(e) => { e.stopPropagation(); setUserMenuOpen(!userMenuOpen) }}>
+                <div ref={userMenuRef} style={{ position: 'relative' }}>
                   <button
+                    type="button"
+                    onClick={() => setUserMenuOpen((v) => !v)}
                     className="flex items-center gap-2 hover:bg-gray-50 transition-colors"
                     style={{
                       border: '1px solid #e4e4e0',
@@ -131,8 +139,9 @@ export function Nav() {
                       fontSize: 14,
                       fontWeight: 600,
                       color: '#000',
-                      padding: '6px 16px 6px 6px',
+                      padding: '6px 10px 6px 6px',
                       borderRadius: 100,
+                      pointerEvents: 'auto',
                     }}
                   >
                     <div
@@ -144,14 +153,43 @@ export function Nav() {
                     <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user.name ?? user.email?.split('@')[0]}
                     </span>
+                    <ChevronDown size={13} color="#888" style={{ transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {/* Desktop fallback: visible logout without requiring dropdown click */}
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="ml-2 hidden lg:inline-flex items-center justify-center hover:bg-red-50 transition-colors"
+                    style={{
+                      border: '1px solid #f1d3d3',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: '#dc2626',
+                      padding: '8px 12px',
+                      borderRadius: 100,
+                      pointerEvents: 'auto',
+                    }}
+                  >
+                    Sign out
                   </button>
 
                   {userMenuOpen && (
                     <div
-                      className="absolute right-0 top-full mt-3 py-1 z-50 animate-fadeDown"
-                      style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 16, width: 200, boxShadow: '0 12px 40px rgba(0,0,0,0.12)' }}
-                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-full mt-3 py-1 z-50"
+                      style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 16, width: 210, boxShadow: '0 12px 40px rgba(0,0,0,0.12)' }}
                     >
+                      {/* User info header */}
+                      <div className="px-5 py-3" style={{ borderBottom: '1px solid #f4f4f2' }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#060d0a', marginBottom: 2 }}>
+                          {user.name ?? user.email?.split('@')[0]}
+                        </p>
+                        <p style={{ fontSize: 11, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {user.email}
+                        </p>
+                      </div>
                       <Link href="/account" onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                         style={{ fontSize: 14, fontWeight: 500, color: '#333', textDecoration: 'none' }}>

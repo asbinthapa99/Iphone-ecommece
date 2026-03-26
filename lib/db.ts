@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import { MOCK_DEVICES } from '@/lib/mock-data'
+import { getPrimaryAdminEmailFromEnv } from '@/lib/admin-emails'
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -108,10 +109,13 @@ export async function initUsersTable() {
     // Columns might already exist, safe to ignore
   }
 
-  // Bootstrap admin from env without removing existing DB-admin users.
-  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
-  if (adminEmail) {
-    await sql`UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ${adminEmail}`
+  // Bootstrap a single admin from env.
+  const primaryAdminEmail = getPrimaryAdminEmailFromEnv()
+  if (primaryAdminEmail) {
+    await sql`UPDATE users SET is_admin = FALSE WHERE LOWER(email) <> ${primaryAdminEmail}`
+    await sql`UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ${primaryAdminEmail}`
+  } else {
+    await sql`UPDATE users SET is_admin = FALSE`
   }
 
   await sql`

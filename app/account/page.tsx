@@ -8,7 +8,7 @@ import { useCart } from '@/lib/cart'
 import {
   Package, Phone, Mail, LogOut, ChevronRight,
   ShieldCheck, Clock, Edit2, Heart, ShoppingBag,
-  Smartphone, Star, MapPin, X, Check, User,
+  Smartphone, Star, MapPin, X, Check, User, LayoutDashboard,
 } from 'lucide-react'
 
 export default function AccountPage() {
@@ -79,6 +79,7 @@ export default function AccountPage() {
 
   const initials = (user.name ?? user.email ?? 'U').slice(0, 2).toUpperCase()
   const displayName = name || user.name || user.email?.split('@')[0] || 'User'
+  const canAccessAdminDashboard = user.isAdmin === true
 
   return (
     <main className="max-w-lg mx-auto px-4 py-8 pb-28">
@@ -193,6 +194,30 @@ export default function AccountPage() {
           </Link>
         ))}
       </div>
+
+      {canAccessAdminDashboard && (
+        <Link
+          href="/admin"
+          className="flex items-center justify-between px-4 py-4 rounded-[16px] mb-4 hover:opacity-90 transition-opacity"
+          style={{ background: '#060d0a', border: '0.5px solid #0f2419', textDecoration: 'none' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center justify-center rounded-[10px] shrink-0"
+              style={{ width: 36, height: 36, background: '#1D9E75' }}
+            >
+              <LayoutDashboard size={16} color="#fff" />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Admin Dashboard</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 1 }}>
+                Manage products, orders and users
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={16} color="#fff" />
+        </Link>
+      )}
 
       {/* ── Cart preview (if non-empty) ── */}
       {cartCount > 0 && (

@@ -1,13 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { ShieldCheck, Search, CheckCircle2, XCircle, AlertCircle, Lock, Loader2 } from 'lucide-react'
-import type { ImeiCheckResult } from '@/types'
+import { ShieldCheck, ShieldX, Search, AlertCircle, CheckCircle2, Loader2, Smartphone, ExternalLink } from 'lucide-react'
+
+interface ImeiResult {
+  imei: string
+  valid: boolean
+  brand: string | null
+  model: string | null
+  note: string
+}
 
 export default function ImeiPage() {
   const [imei, setImei] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ImeiCheckResult | null>(null)
+  const [result, setResult] = useState<ImeiResult | null>(null)
   const [error, setError] = useState('')
 
   const handleCheck = async (e: React.FormEvent) => {
@@ -35,13 +42,6 @@ export default function ImeiPage() {
     }
   }
 
-  const statusConfig = result ? {
-    clean:   { icon: CheckCircle2, color: '#1D9E75', bg: '#E1F5EE', border: '#c8ead9', label: 'Clean — Safe to buy' },
-    blocked: { icon: XCircle, color: '#dc2626', bg: '#fee2e2', border: '#fca5a5', label: 'Blocked — Do NOT buy' },
-    stolen:  { icon: XCircle, color: '#dc2626', bg: '#fee2e2', border: '#fca5a5', label: 'Stolen — Do NOT buy' },
-    unknown: { icon: AlertCircle, color: '#a16207', bg: '#fefce8', border: '#fde68a', label: 'Unknown status' },
-  }[result.status] : null
-
   return (
     <main className="max-w-lg mx-auto px-4 py-10 min-h-screen">
       {/* Header */}
@@ -56,8 +56,7 @@ export default function ImeiPage() {
           Free IMEI Checker
         </h1>
         <p style={{ fontSize: 13, color: '#888', lineHeight: 1.7, maxWidth: 320, margin: '0 auto' }}>
-          Check any iPhone&apos;s IMEI before buying.
-          Works for phones from any seller — Hamrobazar, OLX, or anywhere.
+          Verify any phone&apos;s IMEI before buying — works for any seller, any brand.
         </p>
       </div>
 
@@ -88,7 +87,7 @@ export default function ImeiPage() {
           <button
             type="submit"
             disabled={imei.length < 15 || loading}
-            className="flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 shrink-0"
+            className="flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 shrink-0 transition-colors"
             style={{
               background: imei.length >= 15 && !loading ? '#060d0a' : '#f0f0ee',
               color: imei.length >= 15 && !loading ? '#fff' : '#aaa',
@@ -103,14 +102,14 @@ export default function ImeiPage() {
           </button>
         </div>
         <p style={{ fontSize: 11, color: '#aaa', marginTop: 6, textAlign: 'center' }}>
-          Dial *#06# on any phone to find the IMEI
+          Dial <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>*#06#</span> on any phone to find the IMEI
         </p>
       </form>
 
       {/* Error */}
       {error && (
         <div
-          className="flex items-center gap-2 rounded-[12px] p-3 mb-4 animate-fadeUp"
+          className="flex items-center gap-2 rounded-[12px] p-3 mb-4"
           style={{ background: '#fff5f5', border: '0.5px solid #fca5a5' }}
         >
           <AlertCircle size={14} color="#dc2626" />
@@ -119,55 +118,106 @@ export default function ImeiPage() {
       )}
 
       {/* Result */}
-      {result && statusConfig && (
+      {result && (
         <div
-          className="rounded-[16px] p-5 animate-scaleIn"
-          style={{ background: statusConfig.bg, border: `1px solid ${statusConfig.border}` }}
+          className="rounded-[16px] p-5 mb-6"
+          style={{
+            background: result.valid ? '#f4faf7' : '#fff5f5',
+            border: `1px solid ${result.valid ? '#c8ead9' : '#fca5a5'}`,
+          }}
         >
+          {/* Status */}
           <div className="flex items-center gap-3 mb-4">
-            <statusConfig.icon size={22} color={statusConfig.color} />
-            <p style={{ fontSize: 15, fontWeight: 700, color: statusConfig.color }}>
-              {statusConfig.label}
-            </p>
+            {result.valid
+              ? <ShieldCheck size={22} color="#1D9E75" />
+              : <ShieldX size={22} color="#dc2626" />
+            }
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: result.valid ? '#0F6E56' : '#dc2626' }}>
+                {result.valid ? 'Valid IMEI format' : 'Invalid IMEI'}
+              </p>
+              <p style={{ fontSize: 11, color: '#888', marginTop: 1 }}>
+                {result.note}
+              </p>
+            </div>
           </div>
+
+          {/* IMEI + Model rows */}
           <div className="space-y-2">
-            {[
-              ['IMEI', result.imei],
-              ['Model', result.model ?? 'Unknown'],
-              ['Region', result.regionLock ?? 'Unknown'],
-              ['iCloud Lock', result.icloudLocked === true ? 'Locked ⚠️' : result.icloudLocked === false ? 'Unlocked ✓' : 'Unknown'],
-            ].map(([label, value]) => (
+            <div
+              className="flex justify-between items-center rounded-[8px] px-3 py-2"
+              style={{ background: 'rgba(255,255,255,0.7)' }}
+            >
+              <span style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                IMEI
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#060d0a', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                {result.imei}
+              </span>
+            </div>
+
+            {result.valid && (
               <div
-                key={label}
-                className="flex justify-between rounded-[8px] px-3 py-2"
-                style={{ background: 'rgba(255,255,255,0.6)' }}
+                className="flex justify-between items-center rounded-[8px] px-3 py-2"
+                style={{ background: 'rgba(255,255,255,0.7)' }}
               >
                 <span style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {label}
+                  Device
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#060d0a', fontFamily: label === 'IMEI' ? 'monospace' : 'inherit' }}>
-                  {value}
+                <span className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 600, color: '#060d0a' }}>
+                  {result.model ? (
+                    <><Smartphone size={12} color="#1D9E75" /> {result.brand} {result.model}</>
+                  ) : (
+                    <span style={{ color: '#aaa' }}>Unknown model</span>
+                  )}
                 </span>
               </div>
-            ))}
+            )}
+
+            {result.valid && (
+              <div
+                className="flex justify-between items-center rounded-[8px] px-3 py-2"
+                style={{ background: 'rgba(255,255,255,0.7)' }}
+              >
+                <span style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Luhn check
+                </span>
+                <span className="flex items-center gap-1" style={{ fontSize: 12, fontWeight: 600, color: '#1D9E75' }}>
+                  <CheckCircle2 size={12} color="#1D9E75" /> Passed
+                </span>
+              </div>
+            )}
           </div>
-          {result.icloudLocked && (
+
+          {/* Stolen check notice */}
+          {result.valid && (
             <div
-              className="flex items-center gap-2 mt-3 rounded-[8px] p-2.5"
-              style={{ background: '#fefce8', border: '0.5px solid #fde68a' }}
+              className="mt-3 rounded-[10px] p-3"
+              style={{ background: '#fffbeb', border: '0.5px solid #fde68a' }}
             >
-              <Lock size={12} color="#a16207" />
-              <p style={{ fontSize: 11, color: '#a16207', fontWeight: 600 }}>
-                iCloud locked phones cannot be activated — avoid purchasing.
+              <p style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginBottom: 4 }}>
+                Want to check if it&apos;s stolen or blacklisted?
               </p>
+              <p style={{ fontSize: 11, color: '#a16207', lineHeight: 1.6 }}>
+                Visit the <strong>Nepal Government DOTM</strong> portal — the official source for stolen device records in Nepal.
+              </p>
+              <a
+                href="https://dotm.gov.np"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2"
+                style={{ fontSize: 12, fontWeight: 700, color: '#1D9E75', textDecoration: 'none' }}
+              >
+                Check on DOTM Nepal <ExternalLink size={11} />
+              </a>
             </div>
           )}
         </div>
       )}
 
-      {/* Trust notes */}
+      {/* Why check IMEI */}
       <div
-        className="mt-8 rounded-[14px] p-4"
+        className="rounded-[14px] p-4"
         style={{ background: '#fafaf8', border: '0.5px solid #ebebeb' }}
       >
         <p style={{ fontSize: 11, fontWeight: 700, color: '#060d0a', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -176,8 +226,8 @@ export default function ImeiPage() {
         <div className="space-y-2.5">
           {[
             ['Verify it\'s not stolen', 'Stolen phones are blacklisted by telecom authorities'],
-            ['Check iCloud lock status', 'iCloud locked phones are worthless — can\'t be used'],
-            ['Confirm the model', 'Fake iPhones often show wrong model info'],
+            ['Confirm the model', 'Counterfeit iPhones often show wrong model info'],
+            ['Works for any seller', 'Hamrobazar, OLX, or any private seller'],
           ].map(([title, desc]) => (
             <div key={title} className="flex items-start gap-2">
               <CheckCircle2 size={13} color="#1D9E75" className="shrink-0 mt-0.5" />
@@ -188,9 +238,26 @@ export default function ImeiPage() {
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 11, color: '#aaa', marginTop: 12, textAlign: 'center' }}>
-          Free forever · Works for any device · No registration needed
-        </p>
+
+        {/* DOTM credit */}
+        <div
+          className="flex items-center gap-2 mt-4 pt-3"
+          style={{ borderTop: '0.5px solid #e8e8e4' }}
+        >
+          <p style={{ fontSize: 10, color: '#bbb', lineHeight: 1.5 }}>
+            IMEI format validated using the Luhn algorithm. Device model identified via the GSMA TAC registry.
+            Stolen/blacklist data is maintained by{' '}
+            <a
+              href="https://dotm.gov.np"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1D9E75', textDecoration: 'none', fontWeight: 600 }}
+            >
+              DOTM Nepal
+            </a>
+            {' '}— Department of Telecommunications and Mass Communications, Government of Nepal.
+          </p>
+        </div>
       </div>
     </main>
   )

@@ -3,26 +3,19 @@ import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { initUsersTable, sql } from '@/lib/db'
+import { sendWelcomeEmail } from '@/lib/email'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 async function resolveIsAdmin(email: string): Promise<boolean> {
   const normalizedEmail = email.toLowerCase().trim()
-  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
 
   await initUsersTable()
 
-  if (adminEmail && normalizedEmail === adminEmail) {
+  if (isPrimaryAdminEmail(normalizedEmail)) {
     await sql`UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ${normalizedEmail}`
     return true
   }
-
-  const rows = await sql`
-    SELECT is_admin
-    FROM users
-    WHERE LOWER(email) = ${normalizedEmail}
-    LIMIT 1
-  ` as Array<{ is_admin: boolean | null }>
-
-  return rows.length > 0 ? !!rows[0].is_admin : false
+  return false
 }
 
 export const authOptions: NextAuthOptions = {
@@ -79,8 +72,9 @@ export const authOptions: NextAuthOptions = {
           await initUsersTable()
           const email = user.email.toLowerCase().trim()
           const name = user.name?.trim() || null
-          const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
-          const isAdminByEnv = !!adminEmail && email === adminEmail
+          const existingRows = await sql`SELECT id FROM users WHERE LOWER(email) = ${email} LIMIT 1`
+          const isFirstGoogleSignup = existingRows.length === 0
+          const isAdminByEnv = isPrimaryAdminEmail(email)
           await sql`
             INSERT INTO users (name, email, provider, password, phone, is_admin)
             VALUES (${name}, ${email}, 'google', NULL, NULL, ${isAdminByEnv})
@@ -93,6 +87,9 @@ export const authOptions: NextAuthOptions = {
                 ELSE 'google'
               END
           `
+          if (isFirstGoogleSignup) {
+            sendWelcomeEmail(email, name).catch(console.error)
+          }
         } catch {
           // Never block sign-in if profile persistence fails.
         }

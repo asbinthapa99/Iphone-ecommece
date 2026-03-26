@@ -4,6 +4,7 @@ import { paymentSuccessEmail } from './emails/payment-success'
 import { deliveryInProcessEmail } from './emails/delivery-in-process'
 import { deliveredEmail } from './emails/delivered'
 import { resetOtpEmail as getResetOtpEmail } from './emails/reset-otp'
+import { welcomeEmail as getWelcomeEmail } from './emails/welcome'
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
@@ -77,4 +78,10 @@ export async function sendDelivered(order: Order) {
 export async function sendPasswordResetEmail(email: string, otp: string) {
   const { subject, html } = getResetOtpEmail(otp, email)
   await send(email.toLowerCase().trim(), subject, html)
+}
+
+export async function sendWelcomeEmail(email: string, name?: string | null) {
+  const normalized = email.toLowerCase().trim()
+  const { subject, html } = getWelcomeEmail(name ?? null, SITE_URL)
+  await send(normalized, subject, html)
 }
