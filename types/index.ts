@@ -95,7 +95,7 @@ export interface UserProfile {
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
-export type PaymentMethod = 'esewa' | 'khalti' | 'cod' | 'bank_transfer'
+export type PaymentMethod = 'esewa' | 'khalti' | 'cod' | 'bank_transfer' | 'qr'
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
 export interface OrderItem {

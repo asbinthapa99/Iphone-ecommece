@@ -26,6 +26,11 @@ type DeviceRow = {
   review_count: number | null
 }
 
+function toIsoDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString()
+  return new Date(String(value)).toISOString()
+}
+
 function rowToDevice(row: DeviceRow) {
   return {
     id: row.id,
@@ -44,7 +49,7 @@ function rowToDevice(row: DeviceRow) {
     photos: Array.isArray(row.photos) ? (row.photos as string[]) : [],
     description: row.description ?? undefined,
     specs: row.specs ?? undefined,
-    createdAt: new Date(row.created_at).toISOString(),
+    createdAt: toIsoDate(row.created_at),
     rating: row.rating ?? undefined,
     reviewCount: row.review_count ?? undefined,
   }
@@ -122,59 +127,78 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: admin.status === 401 ? 'Unauthorized' : 'Forbidden' }, { status: admin.status })
   }
 
-  await initDevicesTable()
-  const body = await request.json() as {
-    category: string
-    model: string
-    storage: string
-    color: string
-    grade: string
-    batteryHealth: number
-    price: number
-    originalPrice?: number | null
-    imei: string
-    imeiStatus?: string
-    icloudLocked?: boolean
-    status: string
-    photos?: string[]
-    description?: string
-    specs?: unknown
-  }
+  try {
+    await initDevicesTable()
+    const body = await request.json() as {
+      category: string
+      model: string
+      storage: string
+      color: string
+      grade: string
+      batteryHealth: number
+      price: number
+      originalPrice?: number | string | null
+      imei: string
+      imeiStatus?: string
+      icloudLocked?: boolean
+      status: string
+      photos?: string[]
+      description?: string
+      specs?: unknown
+    }
 
-  const category = typeof body.category === 'string' ? body.category.trim().toLowerCase() : ''
-  const model = typeof body.model === 'string' ? body.model.trim() : ''
-  const storage = typeof body.storage === 'string' ? body.storage.trim() : ''
-  const color = typeof body.color === 'string' ? body.color.trim() : ''
-  const grade = typeof body.grade === 'string' ? body.grade.trim() : ''
-  const status = typeof body.status === 'string' ? body.status.trim() : ''
-  const imei = typeof body.imei === 'string' ? body.imei.trim() : ''
-  const requiresImei = category === 'iphone' || category === 'android'
+    const category = typeof body.category === 'string' ? body.category.trim().toLowerCase() : ''
+    const model = typeof body.model === 'string' ? body.model.trim() : ''
+    const storage = typeof body.storage === 'string' ? body.storage.trim() : ''
+    const color = typeof body.color === 'string' ? body.color.trim() : ''
+    const grade = typeof body.grade === 'string' ? body.grade.trim() : ''
+    const status = typeof body.status === 'string' ? body.status.trim() : ''
+    const imei = typeof body.imei === 'string' ? body.imei.trim() : ''
+    const imeiStatus = typeof body.imeiStatus === 'string' && body.imeiStatus.trim() ? body.imeiStatus.trim() : 'clean'
+    const requiresImei = category === 'iphone' || category === 'android'
+    const batteryHealth = Number(body.batteryHealth)
+    const price = Number(body.price)
+    const rawOriginalPrice = body.originalPrice
+    const originalPrice = rawOriginalPrice == null || rawOriginalPrice === ''
+      ? null
+      : Number(rawOriginalPrice)
+    const photos = Array.isArray(body.photos) ? body.photos.filter((p) => typeof p === 'string' && p.trim()) : []
 
-  if (!model || !category || !storage || !grade || !status) {
-    return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
-  }
-  if (requiresImei && !imei) {
-    return NextResponse.json({ error: 'IMEI is required for phone products.' }, { status: 400 })
-  }
-  if (!Number.isFinite(body.price) || body.price <= 0) {
-    return NextResponse.json({ error: 'Price must be a positive number.' }, { status: 400 })
-  }
-  const safeImei = imei || `NA-${Date.now().toString(36)}`
+    if (!model || !category || !storage || !grade || !status) {
+      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
+    }
+    if (requiresImei && !imei) {
+      return NextResponse.json({ error: 'IMEI is required for phone products.' }, { status: 400 })
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      return NextResponse.json({ error: 'Price must be a positive number.' }, { status: 400 })
+    }
+    if (!Number.isFinite(batteryHealth) || batteryHealth < 50 || batteryHealth > 100) {
+      return NextResponse.json({ error: 'Battery health must be between 50 and 100.' }, { status: 400 })
+    }
+    if (originalPrice != null && (!Number.isFinite(originalPrice) || originalPrice <= 0)) {
+      return NextResponse.json({ error: 'Original price must be a positive number.' }, { status: 400 })
+    }
 
-  const id = `d_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
-  const rows = await sql`
-    INSERT INTO devices (
-      id, category, model, storage, color, grade, battery_health, price, original_price,
-      imei, imei_status, icloud_locked, status, photos, description, specs, created_at, updated_at
-    ) VALUES (
-      ${id}, ${category}, ${model}, ${storage}, ${color},
-      ${grade}, ${body.batteryHealth}, ${body.price}, ${body.originalPrice ?? null},
-      ${safeImei}, ${body.imeiStatus ?? 'clean'}, ${!!body.icloudLocked}, ${status},
-      ${JSON.stringify(body.photos ?? [])}::jsonb, ${body.description?.trim() ?? null},
-      ${body.specs ? JSON.stringify(body.specs) : null}::jsonb, NOW(), NOW()
-    )
-    RETURNING *
-  ` as unknown as DeviceRow[]
+    const safeImei = imei || `NA-${Date.now().toString(36)}`
+    const id = `d_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    const rows = await sql`
+      INSERT INTO devices (
+        id, category, model, storage, color, grade, battery_health, price, original_price,
+        imei, imei_status, icloud_locked, status, photos, description, specs, created_at, updated_at
+      ) VALUES (
+        ${id}, ${category}, ${model}, ${storage}, ${color},
+        ${grade}, ${Math.round(batteryHealth)}, ${Math.round(price)}, ${originalPrice == null ? null : Math.round(originalPrice)},
+        ${safeImei}, ${imeiStatus}, ${!!body.icloudLocked}, ${status},
+        ${JSON.stringify(photos)}::jsonb, ${body.description?.trim() ?? null},
+        ${body.specs ? JSON.stringify(body.specs) : null}::jsonb, NOW(), NOW()
+      )
+      RETURNING *
+    ` as unknown as DeviceRow[]
 
-  return NextResponse.json({ device: rowToDevice(rows[0]) }, { status: 201 })
+    return NextResponse.json({ device: rowToDevice(rows[0]) }, { status: 201 })
+  } catch (err) {
+    console.error('Failed to create product:', err)
+    return NextResponse.json({ error: 'Failed to create product.' }, { status: 500 })
+  }
 }

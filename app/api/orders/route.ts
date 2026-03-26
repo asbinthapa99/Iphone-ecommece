@@ -10,6 +10,11 @@ function generateOrderNumber() {
   return 'INX' + Date.now().toString(36).toUpperCase()
 }
 
+function toIsoDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString()
+  return new Date(String(value)).toISOString()
+}
+
 export function rowToOrder(row: Record<string, unknown>): Order {
   return {
     id: row.id as string,
@@ -36,8 +41,8 @@ export function rowToOrder(row: Record<string, unknown>): Order {
       price: row.device_price as number,
       photo: row.device_photo as string | undefined,
     },
-    createdAt: (row.created_at as Date).toISOString(),
-    updatedAt: (row.updated_at as Date).toISOString(),
+    createdAt: toIsoDate(row.created_at),
+    updatedAt: toIsoDate(row.updated_at),
   }
 }
 

@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import {
   ShieldCheck, ArrowLeft, ArrowRight, Loader2,
-  MapPin, Phone, Mail, User, StickyNote, CheckCircle2, Truck, Lock,
+  MapPin, Phone, Mail, User, StickyNote, CheckCircle2, Truck, Lock, QrCode,
 } from 'lucide-react'
 import type { Device, PaymentMethod } from '@/types'
 
@@ -79,6 +79,25 @@ const PAYMENT_OPTIONS: {
       </div>
     ),
   },
+  {
+    id: 'qr' as PaymentMethod,
+    label: 'Scan & Pay (QR)',
+    sub: 'eSewa · Khalti · ConnectIPS · Any bank',
+    bg: '#fafafa',
+    border: '#e0e0dc',
+    activeBg: '#f0fdf4',
+    icon: (
+      <div
+        style={{
+          width: 38, height: 38, borderRadius: 10,
+          background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <QrCode size={18} color="#fff" />
+      </div>
+    ),
+  },
 ]
 
 // ── Form input style helpers ──────────────────────────────────────────────────
@@ -140,6 +159,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('khalti')
   const [warrantyExtended, setWarrantyExtended] = useState(false)
   const [notes, setNotes] = useState('')
+  const [txnId, setTxnId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -195,6 +215,7 @@ export default function CheckoutPage() {
           deliveryAddress: address,
           city,
           paymentMethod,
+          paymentRef: paymentMethod === 'qr' ? txnId.trim() : undefined,
           warrantyExtended,
           notes,
           userId: user?.id,
@@ -396,6 +417,7 @@ export default function CheckoutPage() {
                       khalti: '#5c2d91',
                       cod: '#444',
                       bank_transfer: '#2563eb',
+                      qr: '#059669',
                     }
                     const color = activeColors[opt.id]
                     return (
@@ -451,6 +473,65 @@ export default function CheckoutPage() {
                               </p>
                               <p style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
                                 Please select Khalti or Cash on Delivery to complete your order.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* QR selected — show QR code + txn ID input */}
+                        {opt.id === 'qr' && active && (
+                          <div
+                            className="rounded-[12px] p-4 mt-1.5 space-y-4"
+                            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}
+                          >
+                            <div>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#065f46', marginBottom: 2 }}>
+                                Scan &amp; Pay NPR {total.toLocaleString()}
+                              </p>
+                              <p style={{ fontSize: 11, color: '#047857' }}>
+                                Use eSewa, Khalti, ConnectIPS or any bank app
+                              </p>
+                            </div>
+
+                            {/* QR code image — replace src with your merchant QR */}
+                            <div className="flex justify-center">
+                              <div
+                                className="flex items-center justify-center rounded-[12px] overflow-hidden"
+                                style={{ width: 160, height: 160, background: '#fff', border: '1px solid #bbf7d0', padding: 8 }}
+                              >
+                                {/* Replace this with your actual QR image:
+                                    <Image src="/qr-payment.png" alt="Pay QR" width={144} height={144} />
+                                */}
+                                <div className="flex flex-col items-center gap-2" style={{ color: '#059669' }}>
+                                  <QrCode size={64} />
+                                  <span style={{ fontSize: 10, color: '#666', textAlign: 'center', lineHeight: 1.4 }}>
+                                    Add your QR image<br />to /public/qr-payment.png
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Transaction ID input */}
+                            <div>
+                              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>
+                                Transaction ID / Reference *
+                              </label>
+                              <input
+                                type="text"
+                                value={txnId}
+                                onChange={(e) => setTxnId(e.target.value)}
+                                placeholder="e.g. 202501241234567890"
+                                required={paymentMethod === 'qr'}
+                                style={{
+                                  width: '100%', padding: '10px 12px', borderRadius: 10,
+                                  border: '1.5px solid #6ee7b7', fontSize: 13, color: '#065f46',
+                                  background: '#fff', outline: 'none',
+                                }}
+                                onFocus={(e) => { e.currentTarget.style.borderColor = '#059669' }}
+                                onBlur={(e) => { e.currentTarget.style.borderColor = '#6ee7b7' }}
+                              />
+                              <p style={{ fontSize: 10, color: '#059669', marginTop: 4 }}>
+                                Enter the transaction ID shown after payment to confirm your order.
                               </p>
                             </div>
                           </div>
@@ -646,13 +727,13 @@ export default function CheckoutPage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={submitting || paymentMethod === 'esewa'}
+                disabled={submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim())}
                 className="w-full flex items-center justify-center gap-2 rounded-[14px] transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{
                   padding: '15px',
-                  background: submitting || paymentMethod === 'esewa' ? '#ccc' : '#060d0a',
+                  background: submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim()) ? '#ccc' : '#060d0a',
                   color: '#fff', fontSize: 15, fontWeight: 800,
-                  border: 'none', cursor: submitting || paymentMethod === 'esewa' ? 'not-allowed' : 'pointer',
+                  border: 'none', cursor: submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim()) ? 'not-allowed' : 'pointer',
                   letterSpacing: '-0.3px',
                 }}
               >
