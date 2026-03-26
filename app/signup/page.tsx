@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 
 export default function SignupPage() {
@@ -15,7 +15,6 @@ export default function SignupPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
 
   const passwordError = (pw: string) => {
     if (pw.length < 12) return 'Password must be at least 12 characters.'
@@ -57,8 +56,17 @@ export default function SignupPage() {
       if (!res.ok) {
         setError(data.error ?? 'Something went wrong.')
       } else {
-        setSuccess(true)
-        setTimeout(() => router.push('/login'), 3000)
+        // Account created — sign in immediately, no email verification needed
+        const result = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        })
+        if (result?.ok) {
+          router.push('/account')
+        } else {
+          router.push('/login')
+        }
       }
     } catch {
       setError('Something went wrong. Please try again.')
@@ -67,26 +75,6 @@ export default function SignupPage() {
     }
   }
 
-  if (success) {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4" style={{ background: '#fff' }}>
-        <div className="text-center max-w-[360px]">
-          <div
-            className="mx-auto mb-5 flex items-center justify-center rounded-full"
-            style={{ width: 60, height: 60, background: '#E1F5EE' }}
-          >
-            <CheckCircle2 size={28} color="#1D9E75" />
-          </div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#060d0a', letterSpacing: '-0.5px' }}>
-            Account created!
-          </h2>
-          <p style={{ fontSize: 13, color: '#888', marginTop: 8, lineHeight: 1.6 }}>
-            Check your email to confirm your account. Redirecting to login…
-          </p>
-        </div>
-      </main>
-    )
-  }
 
   return (
     <main

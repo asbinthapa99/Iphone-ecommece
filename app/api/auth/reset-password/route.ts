@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
   }
   const otpDigits = otp.replace(/\D/g, '')
-  if (otpDigits.length !== 8) {
-    return NextResponse.json({ error: 'Code must be 8 digits.' }, { status: 400 })
+  if (otpDigits.length !== 4) {
+    return NextResponse.json({ error: 'Code must be 4 digits.' }, { status: 400 })
   }
 
   const passwordError = validatePasswordStrength(password)

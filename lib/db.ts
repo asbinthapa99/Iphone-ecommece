@@ -92,6 +92,7 @@ export async function initUsersTable() {
       phone       TEXT,
       password    TEXT,
       provider    TEXT NOT NULL DEFAULT 'credentials',
+      is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
       address     TEXT,
       city        TEXT,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -102,8 +103,15 @@ export async function initUsersTable() {
   try {
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT;`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;`
   } catch {
     // Columns might already exist, safe to ignore
+  }
+
+  // Bootstrap admin from env without removing existing DB-admin users.
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim()
+  if (adminEmail) {
+    await sql`UPDATE users SET is_admin = TRUE WHERE LOWER(email) = ${adminEmail}`
   }
 
   await sql`
