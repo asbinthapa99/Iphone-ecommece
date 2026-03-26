@@ -31,7 +31,7 @@ export default function NewProductPage() {
         imeiStatus: 'clean',
         icloudLocked: false,
         status: form.status,
-        photos: [],
+        photos: form.photos,
         description: form.description,
         specs: specsFormToDeviceSpecs(form.specs),
       }),

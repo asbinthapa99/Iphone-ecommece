@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Upload, CheckCircle2, Plus, Trash2, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Upload, CheckCircle2, Plus, Trash2, ChevronDown, ChevronUp, Info, Loader2, X } from 'lucide-react'
 import { INSPECTION_POINTS } from '@/lib/mock-data'
 import { CATEGORIES, MODELS_BY_CATEGORY, STORAGE_OPTIONS, COLORS } from '@/lib/product-constants'
 import type { ProductCategory, DeviceSpecs } from '@/types'
@@ -56,6 +56,7 @@ export interface ProductFormState {
   imei: string
   description: string
   status: string
+  photos: string[]
   specs: SpecsFormState
 }
 
@@ -460,16 +461,51 @@ export function ProductForm({ mode, initial, existingPhotos, saved, onSubmit, on
     imei: initial?.imei ?? '',
     description: initial?.description ?? '',
     status: initial?.status ?? 'available',
+    photos: existingPhotos ?? [],
     specs: { ...emptySpecs, ...initial?.specs },
   })
   const [inspection, setInspection] = useState<Record<string, boolean>>(
     Object.fromEntries(INSPECTION_POINTS.map((p) => [p.key, mode === 'edit']))
   )
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const set = (key: keyof Omit<ProductFormState, 'specs'>) =>
+  const set = (key: keyof Omit<ProductFormState, 'specs' | 'photos'>) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    if (form.photos.length + files.length > 12) {
+      setUploadError('Maximum 12 photos allowed.')
+      return
+    }
+    setUploadError('')
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      files.forEach((f) => fd.append('files', f))
+      const res = await fetch('/api/upload?type=products', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) {
+        setUploadError(data.error ?? 'Upload failed.')
+      } else {
+        if (data.errors?.length) setUploadError(data.errors.map((e: { reason: string }) => e.reason).join('; '))
+        setForm((f) => ({ ...f, photos: [...f.photos, ...data.urls] }))
+      }
+    } catch {
+      setUploadError('Network error during upload.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const removePhoto = (url: string) =>
+    setForm((f) => ({ ...f, photos: f.photos.filter((p) => p !== url) }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -600,27 +636,55 @@ export function ProductForm({ mode, initial, existingPhotos, saved, onSubmit, on
 
       {/* Photos */}
       <Section title="Photos">
-        {existingPhotos && existingPhotos.length > 0 && (
+        {/* Current photos grid */}
+        {form.photos.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            {existingPhotos.map((url, i) => (
-              <div key={i} className="relative group w-20 h-20 rounded-[10px] overflow-hidden" style={{ border: '0.5px solid #f0f0ee' }}>
+            {form.photos.map((url) => (
+              <div key={url} className="relative group w-20 h-20 rounded-[10px] overflow-hidden" style={{ border: '0.5px solid #f0f0ee' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt="" className="w-full h-full object-cover" />
-                <button type="button" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <Trash2 size={14} color="#fff" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(url)}
+                  className="absolute top-1 right-1 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ width: 20, height: 20, background: 'rgba(0,0,0,0.6)' }}
+                >
+                  <X size={11} color="#fff" />
                 </button>
               </div>
             ))}
           </div>
         )}
-        <div className="border-dashed rounded-[12px] flex flex-col items-center justify-center py-10 cursor-pointer hover:bg-[#fafaf8] transition-colors" style={{ border: '1px dashed #e0e0dc' }}>
-          <Upload size={20} color="#aaa" />
-          <p className="text-[12px] mt-2" style={{ color: '#888' }}>Drop photos here or click to upload</p>
-          <p className="text-[10px] mt-1" style={{ color: '#aaa' }}>8–12 photos · JPG, PNG · max 5MB each</p>
-          <button type="button" className="mt-3 flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-[8px]" style={{ border: '0.5px solid #e0e0dc', color: '#444' }}>
-            <Plus size={11} /> Choose files
-          </button>
+
+        {/* Upload area */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={handleFilesSelected}
+        />
+        <div
+          className="border-dashed rounded-[12px] flex flex-col items-center justify-center py-10 cursor-pointer hover:bg-[#fafaf8] transition-colors"
+          style={{ border: '1px dashed #e0e0dc' }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {uploading ? (
+            <><Loader2 size={20} color="#1D9E75" className="animate-spin" /><p className="text-[12px] mt-2" style={{ color: '#888' }}>Uploading…</p></>
+          ) : (
+            <>
+              <Upload size={20} color="#aaa" />
+              <p className="text-[12px] mt-2" style={{ color: '#888' }}>Click to upload photos</p>
+              <p className="text-[10px] mt-1" style={{ color: '#aaa' }}>JPG, PNG, WebP · max 5 MB each · up to 12 photos</p>
+              <button type="button" className="mt-3 flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-[8px]" style={{ border: '0.5px solid #e0e0dc', color: '#444' }}>
+                <Plus size={11} /> Choose files
+              </button>
+            </>
+          )}
         </div>
+        {uploadError && <p className="text-[11px] mt-2" style={{ color: '#e24b4a' }}>{uploadError}</p>}
+        <p className="text-[10px] mt-1.5" style={{ color: '#bbb' }}>{form.photos.length}/12 photos · Hover a photo to remove it</p>
       </Section>
 
       {/* Inspection checklist */}

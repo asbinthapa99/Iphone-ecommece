@@ -106,6 +106,7 @@ export default function EditProductPage() {
         originalPrice: form.originalPrice ? Number(form.originalPrice) : null,
         imei: form.imei,
         status: form.status,
+        photos: form.photos,
         description: form.description,
         specs: specsFormToDeviceSpecs(form.specs),
       }),

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import type { Order, PaymentMethod } from '@/types'
 import { sendOrderConfirmed } from '@/lib/email'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { sql, initUsersTable } from '@/lib/db'
+import { sql, initDevicesTable, initUsersTable } from '@/lib/db'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 function generateOrderNumber() {
   return 'INX' + Date.now().toString(36).toUpperCase()
@@ -47,7 +47,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const isAdmin = !!(session.user as { isAdmin?: boolean }).isAdmin
+  const isAdmin =
+    !!(session.user as { isAdmin?: boolean }).isAdmin ||
+    isPrimaryAdminEmail(session.user.email)
 
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
@@ -115,8 +117,19 @@ interface CreateOrderRequestBody {
   deliveryAddress: string
   city: string
   paymentMethod: PaymentMethod
+  paymentStatus?: 'pending' | 'paid'
   warrantyExtended?: boolean
   notes?: string
+}
+
+type DeviceForOrderRow = {
+  id: string
+  model: string
+  storage: string
+  grade: string
+  price: number
+  photos: unknown
+  status: string
 }
 
 export async function POST(request: NextRequest) {
@@ -143,6 +156,7 @@ export async function POST(request: NextRequest) {
     deliveryAddress,
     city,
     paymentMethod,
+    paymentStatus,
     warrantyExtended,
     notes,
   } = body
@@ -173,6 +187,9 @@ export async function POST(request: NextRequest) {
   if (!allowedMethods.includes(paymentMethod as PaymentMethod)) {
     return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 })
   }
+  if (paymentStatus != null && paymentStatus !== 'pending' && paymentStatus !== 'paid') {
+    return NextResponse.json({ error: 'Invalid payment status' }, { status: 400 })
+  }
   if (buyerEmail != null) {
     if (typeof buyerEmail !== 'string' || buyerEmail.length > 160) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
@@ -189,10 +206,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid warranty flag' }, { status: 400 })
   }
 
-  const device = MOCK_DEVICES.find((d) => d.id === deviceId)
-  if (!device) {
+  await initDevicesTable()
+  const deviceRows = await sql`
+    SELECT id, model, storage, grade, price, photos, status
+    FROM devices
+    WHERE id = ${deviceId}
+    LIMIT 1
+  ` as unknown as DeviceForOrderRow[]
+
+  if (deviceRows.length === 0) {
     return NextResponse.json({ error: 'Device not found' }, { status: 404 })
   }
+  const device = deviceRows[0]
   if (device.status !== 'available') {
     return NextResponse.json({ error: 'Device is no longer available' }, { status: 409 })
   }
@@ -205,6 +230,7 @@ export async function POST(request: NextRequest) {
   const email = typeof buyerEmail === 'string' && buyerEmail.trim()
     ? buyerEmail.toLowerCase().trim()
     : session.user.email!
+  const photoList = Array.isArray(device.photos) ? (device.photos as string[]) : []
 
   const rows = await sql`
     INSERT INTO orders (
@@ -214,17 +240,20 @@ export async function POST(request: NextRequest) {
       device_id, device_model, device_storage, device_grade, device_price, device_photo
     ) VALUES (
       ${orderNumber}, ${userId}, ${buyerName}, ${buyerPhone}, ${email},
-      ${deliveryAddress}, ${city}, ${paymentMethod}, 'pending', ${amount},
+      ${deliveryAddress}, ${city}, ${paymentMethod}, ${paymentStatus ?? 'pending'}, ${amount},
       ${!!warrantyExtended}, 'pending', ${notes ?? null},
-      ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${device.photos[0] ?? null}
+      ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${photoList[0] ?? null}
     )
     RETURNING *
   `
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
 
-  // Mark device as reserved in mock (until devices table exists)
-  device.status = 'reserved'
+  await sql`
+    UPDATE devices
+    SET status = 'reserved', updated_at = NOW()
+    WHERE id = ${device.id}
+  `
 
   // Fire-and-forget — don't block response on email
   sendOrderConfirmed(order).catch(console.error)

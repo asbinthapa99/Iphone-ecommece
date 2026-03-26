@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types'
 import { sendPaymentSuccess, sendDeliveryInProcess, sendDelivered } from '@/lib/email'
 import { sql, initUsersTable } from '@/lib/db'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 function rowToOrder(row: Record<string, unknown>): Order {
   return {
@@ -54,7 +55,9 @@ export async function GET(
   }
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
-  const isAdmin = !!(session.user as { isAdmin?: boolean }).isAdmin
+  const isAdmin =
+    !!(session.user as { isAdmin?: boolean }).isAdmin ||
+    isPrimaryAdminEmail(session.user.email)
 
   // Non-admins can only view their own orders
   if (!isAdmin && order.buyerEmail !== session.user.email) {
@@ -72,7 +75,10 @@ export async function PATCH(
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  if (!(session.user as { isAdmin?: boolean }).isAdmin) {
+  const isAdmin =
+    !!(session.user as { isAdmin?: boolean }).isAdmin ||
+    isPrimaryAdminEmail(session.user.email)
+  if (!isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

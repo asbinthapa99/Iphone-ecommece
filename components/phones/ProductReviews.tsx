@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Star, ThumbsUp, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Star, ThumbsUp, CheckCircle2, ChevronDown, ChevronUp, Camera, X, Loader2 } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import Link from 'next/link'
 import type { Review } from '@/types'
@@ -85,6 +85,20 @@ function ReviewCard({ review }: { review: Review }) {
           <p className="text-[14px] font-semibold text-[#111] mt-1.5 mb-1">{review.title}</p>
           <p className="text-[13px] text-[#555] leading-relaxed">{review.body}</p>
 
+          {review.photos && review.photos.length > 0 && (
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {review.photos.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i} src={url} alt=""
+                  className="w-20 h-20 rounded-[8px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  style={{ border: '0.5px solid #f0f0ee' }}
+                  onClick={() => window.open(url, '_blank')}
+                />
+              ))}
+            </div>
+          )}
+
           {review.helpful > 0 && (
             <button className="flex items-center gap-1.5 mt-3 text-[11px] text-[#888] hover:text-[#444] transition-colors">
               <ThumbsUp size={11} />
@@ -101,8 +115,35 @@ function WriteReviewForm({ deviceId, onSubmitted }: { deviceId: string; onSubmit
   const [rating, setRating] = useState(0)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    if (photos.length + files.length > 3) { setError('Maximum 3 photos per review.'); return }
+    setError('')
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      files.forEach((f) => fd.append('files', f))
+      const res = await fetch('/api/upload?type=reviews', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Photo upload failed.') }
+      else {
+        if (data.errors?.length) setError(data.errors.map((e: { reason: string }) => e.reason).join('; '))
+        setPhotos((p) => [...p, ...data.urls])
+      }
+    } catch {
+      setError('Network error during photo upload.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,12 +158,12 @@ function WriteReviewForm({ deviceId, onSubmitted }: { deviceId: string; onSubmit
       const res = await fetch(`/api/reviews/${deviceId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, title, body }),
+        body: JSON.stringify({ rating, title, body, photos }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'Something went wrong.'); return }
       onSubmitted(data.review)
-      setRating(0); setTitle(''); setBody('')
+      setRating(0); setTitle(''); setBody(''); setPhotos([])
     } catch {
       setError('Network error. Please try again.')
     } finally {
@@ -168,6 +209,48 @@ function WriteReviewForm({ deviceId, onSubmitted }: { deviceId: string; onSubmit
           }}
         />
         <p className="text-[11px] text-[#bbb] mt-1 text-right">{body.length}/1200</p>
+      </div>
+
+      {/* Optional photos */}
+      <div className="mb-4">
+        <p className="text-[12px] font-medium text-[#888] mb-2">Photos (optional, max 3)</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={handlePhotoSelect}
+        />
+        <div className="flex flex-wrap gap-2">
+          {photos.map((url, i) => (
+            <div key={i} className="relative group w-16 h-16 rounded-[8px] overflow-hidden" style={{ border: '0.5px solid #e0e0dc' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setPhotos((p) => p.filter((_, idx) => idx !== i))}
+                className="absolute top-0.5 right-0.5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ width: 16, height: 16, background: 'rgba(0,0,0,0.65)' }}
+              >
+                <X size={9} color="#fff" />
+              </button>
+            </div>
+          ))}
+          {photos.length < 3 && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-[8px] transition-colors hover:bg-[#f4f4f0]"
+              style={{ border: '1px dashed #e0e0dc', color: '#bbb' }}
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" color="#1D9E75" /> : <Camera size={14} />}
+              {!uploading && <span className="text-[9px] mt-0.5">Add</span>}
+            </button>
+          )}
+        </div>
+        <p className="text-[10px] text-[#bbb] mt-1">JPG, PNG, WebP · max 3 MB each</p>
       </div>
 
       {error && (

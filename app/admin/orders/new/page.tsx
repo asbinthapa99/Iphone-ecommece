@@ -1,11 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react'
-import { MOCK_DEVICES } from '@/lib/mock-data'
-import type { PaymentMethod } from '@/types'
+import type { Device, PaymentMethod } from '@/types'
 
 export default function AdminNewOrderPage() {
   const router = useRouter()
@@ -20,10 +19,32 @@ export default function AdminNewOrderPage() {
   const [warrantyExtended, setWarrantyExtended] = useState(false)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [loadingDevices, setLoadingDevices] = useState(true)
+  const [devices, setDevices] = useState<Device[]>([])
   const [error, setError] = useState('')
 
-  const availableDevices = MOCK_DEVICES.filter((d) => d.status === 'available')
-  const selectedDevice = MOCK_DEVICES.find((d) => d.id === deviceId)
+  useEffect(() => {
+    const run = async () => {
+      setLoadingDevices(true)
+      try {
+        const res = await fetch('/api/devices?includeSold=true', { cache: 'no-store' })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(data.error ?? 'Failed to load devices')
+        }
+        setDevices(Array.isArray(data.devices) ? data.devices : [])
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to load devices'
+        setError(message)
+      } finally {
+        setLoadingDevices(false)
+      }
+    }
+    run()
+  }, [])
+
+  const availableDevices = devices.filter((d) => d.status === 'available')
+  const selectedDevice = devices.find((d) => d.id === deviceId)
   const total = selectedDevice ? selectedDevice.price + (warrantyExtended ? 1500 : 0) : 0
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,7 +56,18 @@ export default function AdminNewOrderPage() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, buyerName, buyerPhone, buyerEmail, deliveryAddress: address, city, paymentMethod, warrantyExtended, notes }),
+        body: JSON.stringify({
+          deviceId,
+          buyerName,
+          buyerPhone,
+          buyerEmail,
+          deliveryAddress: address,
+          city,
+          paymentMethod,
+          paymentStatus,
+          warrantyExtended,
+          notes,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'Failed'); return }
@@ -81,6 +113,12 @@ export default function AdminNewOrderPage() {
         <div className="rounded-[14px] p-4" style={{ background: '#fff', border: '0.5px solid #ebebeb' }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: '#060d0a', marginBottom: 12 }}>Select Device *</p>
           <div className="space-y-2 max-h-48 overflow-y-auto">
+            {loadingDevices && (
+              <p style={{ fontSize: 12, color: '#888' }}>Loading devices...</p>
+            )}
+            {!loadingDevices && availableDevices.length === 0 && (
+              <p style={{ fontSize: 12, color: '#888' }}>No available devices found.</p>
+            )}
             {availableDevices.map((d) => (
               <label
                 key={d.id}

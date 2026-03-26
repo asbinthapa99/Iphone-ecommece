@@ -201,4 +201,7 @@ export async function initUsersTable() {
     CREATE UNIQUE INDEX IF NOT EXISTS reviews_user_device_unique
     ON reviews (user_id, device_id);
   `
+
+  // Add photos column to reviews (safe migration for existing tables)
+  await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'::jsonb;`
 }

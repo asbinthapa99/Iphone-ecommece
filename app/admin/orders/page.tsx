@@ -23,36 +23,33 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-// Demo orders for UI
-const DEMO_ORDERS: Order[] = [
-  {
-    id: 'ord-1', orderNumber: 'INX001', buyerName: 'Ram Sharma', buyerPhone: '9841234567',
-    buyerEmail: 'ram@example.com', deliveryAddress: 'Thamel, Ward 26', city: 'Kathmandu',
-    paymentMethod: 'esewa', paymentStatus: 'paid', amount: 43500, warrantyExtended: false,
-    status: 'confirmed', device: { deviceId: '3', model: 'iPhone 13', storage: '128GB', grade: 'B', price: 43500 },
-    createdAt: '2024-01-20T10:00:00Z', updatedAt: '2024-01-20T11:00:00Z',
-  },
-  {
-    id: 'ord-2', orderNumber: 'INX002', buyerName: 'Sita Thapa', buyerPhone: '9800000001',
-    buyerEmail: 'sita@example.com', deliveryAddress: 'Lazimpat, Ward 2', city: 'Kathmandu',
-    paymentMethod: 'khalti', paymentStatus: 'paid', amount: 68000, warrantyExtended: true,
-    status: 'shipped', device: { deviceId: '2', model: 'iPhone 14', storage: '128GB', grade: 'A', price: 68000 },
-    createdAt: '2024-01-19T09:00:00Z', updatedAt: '2024-01-19T12:00:00Z',
-  },
-  {
-    id: 'ord-3', orderNumber: 'INX003', buyerName: 'Hari Bahadur', buyerPhone: '9855555555',
-    deliveryAddress: 'Lakeside, Ward 5', city: 'Pokhara',
-    paymentMethod: 'cod', paymentStatus: 'pending', amount: 29000, warrantyExtended: false,
-    status: 'pending', device: { deviceId: '5', model: 'iPhone 12', storage: '64GB', grade: 'B', price: 29000 },
-    createdAt: '2024-01-18T08:00:00Z', updatedAt: '2024-01-18T08:00:00Z',
-  },
-]
-
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(DEMO_ORDERS)
+  const [orders, setOrders] = useState<Order[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/orders?limit=200', { cache: 'no-store' })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(data.error ?? 'Failed to load orders')
+        }
+        setOrders(Array.isArray(data.orders) ? data.orders : [])
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load orders')
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
+  }, [])
 
   const filtered = orders.filter((o) => {
     const q = search.toLowerCase()
@@ -118,7 +115,21 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {paged.length === 0 ? (
+      {error ? (
+        <div
+          className="text-center rounded-[16px] py-16"
+          style={{ background: '#fff', border: '0.5px solid #ebebeb' }}
+        >
+          <p style={{ fontSize: 14, fontWeight: 600, color: '#dc2626' }}>{error}</p>
+        </div>
+      ) : loading ? (
+        <div
+          className="text-center rounded-[16px] py-16"
+          style={{ background: '#fff', border: '0.5px solid #ebebeb' }}
+        >
+          <p style={{ fontSize: 14, fontWeight: 600, color: '#888' }}>Loading orders...</p>
+        </div>
+      ) : paged.length === 0 ? (
         <div
           className="text-center rounded-[16px] py-16"
           style={{ background: '#fff', border: '0.5px solid #ebebeb' }}

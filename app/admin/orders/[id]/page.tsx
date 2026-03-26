@@ -17,44 +17,81 @@ const PAYMENT_COLORS: Record<PaymentStatus, { bg: string; color: string; label: 
   refunded: { bg: '#f3f4f6', color: '#6b7280', label: 'Refunded' },
 }
 
-const DEMO_ORDER: Order = {
-  id: 'ord-1', orderNumber: 'INX001', buyerName: 'Ram Sharma', buyerPhone: '9841234567',
-  buyerEmail: 'ram@example.com', deliveryAddress: 'Thamel, Ward 26', city: 'Kathmandu',
-  paymentMethod: 'esewa', paymentStatus: 'paid', amount: 43500, warrantyExtended: false,
-  status: 'confirmed', notes: 'Please call before delivery.',
-  device: { deviceId: '3', model: 'iPhone 13', storage: '128GB', grade: 'B', price: 43500 },
-  createdAt: '2024-01-20T10:00:00Z', updatedAt: '2024-01-20T11:00:00Z',
-}
-
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [order, setOrder] = useState<Order>(DEMO_ORDER)
-  const [tracking, setTracking] = useState(order.trackingNumber ?? '')
-  const [adminNotes, setAdminNotes] = useState(order.notes ?? '')
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(order.paymentStatus)
+  const [order, setOrder] = useState<Order | null>(null)
+  const [tracking, setTracking] = useState('')
+  const [adminNotes, setAdminNotes] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pending')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // In production: fetch(`/api/orders/${id}`)
-    queueMicrotask(() => setOrder(DEMO_ORDER))
+    const run = async () => {
+      if (!id) return
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch(`/api/orders/${id}`, { cache: 'no-store' })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(data.error ?? 'Failed to load order')
+        }
+        const loadedOrder = data.order as Order
+        setOrder(loadedOrder)
+        setTracking(loadedOrder.trackingNumber ?? '')
+        setAdminNotes(loadedOrder.notes ?? '')
+        setPaymentStatus(loadedOrder.paymentStatus)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load order')
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
   }, [id])
 
   const handleSave = async () => {
+    if (!order) return
     setSaving(true)
+    setError(null)
     try {
-      await fetch(`/api/orders/${order.id}`, {
+      const res = await fetch(`/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackingNumber: tracking, notes: adminNotes, paymentStatus }),
       })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to update order')
+      }
+      if (data.order) {
+        setOrder(data.order as Order)
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    } catch {}
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update order')
+    }
     setSaving(false)
   }
 
-  const payment = PAYMENT_COLORS[paymentStatus]
+  if (loading) {
+    return <div className="text-[13px]" style={{ color: '#888' }}>Loading order...</div>
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-[14px]" style={{ color: '#888' }}>{error ?? 'Order not found.'}</p>
+        <Link href="/admin/orders" className="text-[12px] mt-2 block" style={{ color: '#1D9E75' }}>
+          Back to orders
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -87,6 +124,11 @@ export default function AdminOrderDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
+          {error && (
+            <div className="rounded-[14px] p-4" style={{ background: '#fff5f5', border: '0.5px solid #fecaca' }}>
+              <p style={{ fontSize: 12, color: '#dc2626' }}>{error}</p>
+            </div>
+          )}
           {/* Order info */}
           <div className="rounded-[14px] p-4" style={{ background: '#fff', border: '0.5px solid #ebebeb' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#060d0a', marginBottom: 14 }}>Order Info</p>

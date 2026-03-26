@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { initDevicesTable, sql } from '@/lib/db'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 type DeviceRow = {
   id: string
@@ -52,7 +53,9 @@ function rowToDevice(row: DeviceRow) {
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) return { ok: false as const, status: 401 }
-  const isAdmin = !!(session.user as { isAdmin?: boolean }).isAdmin
+  const isAdmin =
+    !!(session.user as { isAdmin?: boolean }).isAdmin ||
+    isPrimaryAdminEmail(session.user.email)
   return isAdmin ? { ok: true as const } : { ok: false as const, status: 403 }
 }
 
@@ -67,7 +70,13 @@ export async function GET(request: NextRequest) {
   let includeSold = false
   if (includeSoldRequested) {
     const session = await getServerSession(authOptions)
-    includeSold = !!(session?.user && (session.user as { isAdmin?: boolean }).isAdmin)
+    includeSold = !!(
+      session?.user &&
+      (
+        (session.user as { isAdmin?: boolean }).isAdmin ||
+        isPrimaryAdminEmail(session.user.email)
+      )
+    )
   }
 
   const args: unknown[] = []

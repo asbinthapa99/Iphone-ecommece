@@ -16,6 +16,7 @@ function rowToReview(row: Record<string, unknown>): Review {
     body: row.body as string,
     verifiedPurchase: row.verified_purchase as boolean,
     helpful: row.helpful as number,
+    photos: Array.isArray(row.photos) ? (row.photos as string[]) : [],
     createdAt: (row.created_at as Date).toISOString(),
   }
 }
@@ -76,6 +77,16 @@ export async function POST(
   const userId = (session.user as { id?: string }).id ?? session.user.email
   const id = `rev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 
+  // Validate photos — must be an array of HTTPS Cloudinary URLs (already uploaded)
+  const rawPhotos = Array.isArray(body.photos) ? body.photos as unknown[] : []
+  const photos = rawPhotos
+    .filter((u): u is string =>
+      typeof u === 'string' &&
+      u.startsWith('https://res.cloudinary.com/') &&
+      u.length < 500
+    )
+    .slice(0, 3) // max 3 photos per review
+
   // Check if user already reviewed this device
   const verifiedRows = await sql`
     SELECT id FROM orders
@@ -88,14 +99,15 @@ export async function POST(
 
   try {
     const rows = await sql`
-      INSERT INTO reviews (id, device_id, user_id, user_name, user_initials, rating, title, body, verified_purchase)
+      INSERT INTO reviews (id, device_id, user_id, user_name, user_initials, rating, title, body, verified_purchase, photos)
       VALUES (
         ${id}, ${deviceId}, ${userId},
         ${name}, ${name.slice(0, 2).toUpperCase()},
         ${rating},
         ${body.title.trim().slice(0, 120)},
         ${body.body.trim().slice(0, 1200)},
-        ${verifiedPurchase}
+        ${verifiedPurchase},
+        ${JSON.stringify(photos)}::jsonb
       )
       RETURNING *
     `

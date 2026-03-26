@@ -156,26 +156,6 @@ export function Nav() {
                     <ChevronDown size={13} color="#888" style={{ transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                   </button>
 
-                  {/* Desktop fallback: visible logout without requiring dropdown click */}
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="ml-2 hidden lg:inline-flex items-center justify-center hover:bg-red-50 transition-colors"
-                    style={{
-                      border: '1px solid #f1d3d3',
-                      background: '#fff',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: '#dc2626',
-                      padding: '8px 12px',
-                      borderRadius: 100,
-                      pointerEvents: 'auto',
-                    }}
-                  >
-                    Sign out
-                  </button>
-
                   {userMenuOpen && (
                     <div
                       className="absolute right-0 top-full mt-3 py-1 z-50"

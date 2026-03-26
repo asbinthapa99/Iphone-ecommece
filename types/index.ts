@@ -162,6 +162,7 @@ export interface Review {
   body: string
   verifiedPurchase: boolean
   helpful: number
+  photos: string[]
   createdAt: string
 }
 
