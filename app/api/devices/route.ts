@@ -68,9 +68,8 @@ export async function GET(request: NextRequest) {
   try {
     await initDevicesTable()
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('initDevicesTable failed:', msg)
-    return NextResponse.json({ error: 'Database error', detail: msg }, { status: 500 })
+    console.error('initDevicesTable failed:', err)
+    return NextResponse.json({ error: 'Database error. Please try again.' }, { status: 500 })
   }
   const { searchParams } = new URL(request.url)
   const category = searchParams.get('category')
@@ -209,8 +208,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ device: rowToDevice(rows[0]) }, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('Failed to create product:', msg)
-    return NextResponse.json({ error: 'Failed to create product.', detail: msg }, { status: 500 })
+    console.error('Failed to create product:', err)
+    return NextResponse.json({ error: 'Failed to create product.' }, { status: 500 })
   }
 }
