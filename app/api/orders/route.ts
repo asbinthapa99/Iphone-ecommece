@@ -10,7 +10,7 @@ function generateOrderNumber() {
   return 'INX' + Date.now().toString(36).toUpperCase()
 }
 
-function rowToOrder(row: Record<string, unknown>): Order {
+export function rowToOrder(row: Record<string, unknown>): Order {
   return {
     id: row.id as string,
     orderNumber: row.order_number as string,

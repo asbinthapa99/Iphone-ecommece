@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql, initUsersTable } from '@/lib/db'
-import { resetOtpEmail } from '@/lib/emails/reset-otp'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 function generateOtp() {
   return String(crypto.getRandomValues(new Uint32Array(1))[0] % 9000 + 1000)
@@ -40,38 +40,8 @@ export async function POST(req: NextRequest) {
     VALUES (${email}, ${otp}, ${expiresAt})
   `
 
-  const { subject, html } = resetOtpEmail(otp, email)
-
-  if (process.env.BREVO_SMTP_KEY) {
-    try {
-      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'api-key': process.env.BREVO_SMTP_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: {
-            name: process.env.BREVO_FROM_NAME ?? 'Inexa Nepal',
-            email: process.env.BREVO_FROM_EMAIL,
-          },
-          to: [{ email: rawEmail }],
-          subject,
-          htmlContent: html,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        console.error('[forgot-password] Brevo error:', err)
-        return NextResponse.json({ error: 'Failed to send OTP email. Please try again.' }, { status: 500 })
-      }
-    } catch (err) {
-      console.error('[forgot-password] Email send failed:', err)
-      return NextResponse.json({ error: 'Failed to send OTP email. Please try again.' }, { status: 500 })
-    }
-  } else {
-    console.warn('[forgot-password] BREVO_SMTP_KEY not set — email not sent')
-  }
+  // Use unified email utility
+  await sendPasswordResetEmail(email, otp)
 
   return NextResponse.json({ ok: true })
 }

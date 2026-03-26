@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql, initUsersTable } from '@/lib/db'
+import { sendPaymentSuccess } from '@/lib/email'
+import { rowToOrder } from '@/app/api/orders/route'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -67,6 +69,13 @@ export async function GET(request: NextRequest) {
       WHERE id = ${orderId}
         AND payment_ref = ${pidx}
     `
+
+    // Notification
+    const updatedOrder = await sql`SELECT * FROM orders WHERE id = ${orderId} LIMIT 1`
+    if (updatedOrder.length > 0) {
+      const orderObj = rowToOrder(updatedOrder[0] as Record<string, unknown>)
+      sendPaymentSuccess(orderObj).catch(console.error)
+    }
 
     return NextResponse.redirect(
       new URL(`/order/${orderId}/confirmation`, request.url)
