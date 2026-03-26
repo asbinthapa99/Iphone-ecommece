@@ -29,6 +29,35 @@ export async function GET(request: NextRequest) {
     }
 
     await initUsersTable()
+    const rows = await sql`
+      SELECT id, amount, payment_ref, payment_status
+      FROM orders
+      WHERE id = ${orderId}
+      LIMIT 1
+    `
+    if (rows.length === 0) {
+      return NextResponse.redirect(
+        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+      )
+    }
+    const order = rows[0] as { id: string; amount: number; payment_ref: string | null; payment_status: string }
+    if (order.payment_status === 'paid') {
+      return NextResponse.redirect(
+        new URL(`/order/${orderId}/confirmation`, request.url)
+      )
+    }
+    if (!order.payment_ref || order.payment_ref !== transaction_uuid) {
+      return NextResponse.redirect(
+        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+      )
+    }
+    const paidAmount = Number(total_amount)
+    if (!Number.isFinite(paidAmount) || paidAmount !== order.amount) {
+      return NextResponse.redirect(
+        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+      )
+    }
+
     await sql`
       UPDATE orders
       SET payment_status = 'paid',
@@ -36,6 +65,7 @@ export async function GET(request: NextRequest) {
           status         = 'confirmed',
           updated_at     = NOW()
       WHERE id = ${orderId}
+        AND payment_ref = ${transaction_uuid}
     `
 
     return NextResponse.redirect(

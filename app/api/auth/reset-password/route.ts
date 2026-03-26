@@ -1,23 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { sql } from '@/lib/db'
+import { validatePasswordStrength } from '@/lib/password'
 
 export async function POST(req: NextRequest) {
-  const { email, otp, password } = await req.json()
+  let payload: unknown
+  try {
+    payload = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 })
+  }
+  if (!payload || typeof payload !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+  }
 
-  if (!email || !otp || !password) {
+  const { email, otp, password } = payload as {
+    email?: unknown
+    otp?: unknown
+    password?: unknown
+  }
+
+  if (typeof email !== 'string' || typeof otp !== 'string' || typeof password !== 'string') {
     return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 })
+  const otpDigits = otp.replace(/\D/g, '')
+  if (otpDigits.length !== 8) {
+    return NextResponse.json({ error: 'Code must be 8 digits.' }, { status: 400 })
+  }
+
+  const passwordError = validatePasswordStrength(password)
+  if (passwordError) {
+    return NextResponse.json({ error: passwordError }, { status: 400 })
   }
 
   const normalizedEmail = email.toLowerCase().trim()
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+  if (!emailOk) {
+    return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+  }
 
   // Check attempt count before trying to claim
   const existing = await sql`
     SELECT attempts, used, expires_at FROM password_reset_tokens
-    WHERE email = ${normalizedEmail} AND otp = ${otp}
+    WHERE email = ${normalizedEmail} AND otp = ${otpDigits}
     ORDER BY created_at DESC LIMIT 1
   `
 
@@ -30,7 +55,7 @@ export async function POST(req: NextRequest) {
     UPDATE password_reset_tokens
     SET used = TRUE
     WHERE email      = ${normalizedEmail}
-      AND otp        = ${otp}
+      AND otp        = ${otpDigits}
       AND used       = FALSE
       AND expires_at > NOW()
       AND attempts   < 5
@@ -42,7 +67,7 @@ export async function POST(req: NextRequest) {
     await sql`
       UPDATE password_reset_tokens
       SET attempts = attempts + 1
-      WHERE email = ${normalizedEmail} AND otp = ${otp} AND used = FALSE
+      WHERE email = ${normalizedEmail} AND otp = ${otpDigits} AND used = FALSE
     `
     // Return specific error based on token state
     if (existing.length === 0) {

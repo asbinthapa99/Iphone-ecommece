@@ -21,10 +21,30 @@ const CONDITION_MULTIPLIER: Record<string, number> = {
 }
 
 export async function POST(request: NextRequest) {
-  const { model, storage, condition, batteryHealth } = await request.json()
+  let payload: unknown
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
+  if (!payload || typeof payload !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const { model, storage, condition, batteryHealth } = payload as {
+    model?: unknown
+    storage?: unknown
+    condition?: unknown
+    batteryHealth?: unknown
+  }
 
-  if (!model || !condition) {
+  if (typeof model !== 'string' || typeof condition !== 'string') {
     return NextResponse.json({ error: 'Model and condition are required' }, { status: 400 })
+  }
+  if (storage != null && typeof storage !== 'string') {
+    return NextResponse.json({ error: 'Invalid storage value' }, { status: 400 })
+  }
+  if (batteryHealth != null && (typeof batteryHealth !== 'number' || !Number.isFinite(batteryHealth) || batteryHealth < 0 || batteryHealth > 100)) {
+    return NextResponse.json({ error: 'Battery health must be between 0 and 100' }, { status: 400 })
   }
 
   const modelPrices = BUYBACK_PRICES[model]
@@ -32,13 +52,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Model not supported for trade-in yet' }, { status: 404 })
   }
 
-  const basePriceKey = storage && modelPrices[storage] ? storage : Object.keys(modelPrices)[0]
+  const basePriceKey = typeof storage === 'string' && modelPrices[storage] ? storage : Object.keys(modelPrices)[0]
   const basePrice = modelPrices[basePriceKey] ?? 0
   const condMultiplier = CONDITION_MULTIPLIER[condition] ?? 0.6
 
   // Battery health deduction
   let batteryMultiplier = 1
-  if (batteryHealth) {
+  if (typeof batteryHealth === 'number') {
     if (batteryHealth < 70) batteryMultiplier = 0.7
     else if (batteryHealth < 80) batteryMultiplier = 0.85
     else if (batteryHealth < 90) batteryMultiplier = 0.95

@@ -125,7 +125,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body: CreateOrderRequestBody = await request.json()
+  let payload: unknown
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
+  if (!payload || typeof payload !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const body = payload as Partial<CreateOrderRequestBody>
   const {
     deviceId,
     buyerName,
@@ -138,8 +147,46 @@ export async function POST(request: NextRequest) {
     notes,
   } = body
 
-  if (!deviceId || !buyerName || !buyerPhone || !deliveryAddress || !city || !paymentMethod) {
+  if (
+    typeof deviceId !== 'string' ||
+    typeof buyerName !== 'string' ||
+    typeof buyerPhone !== 'string' ||
+    typeof deliveryAddress !== 'string' ||
+    typeof city !== 'string' ||
+    typeof paymentMethod !== 'string'
+  ) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+  if (buyerName.trim().length < 2 || buyerName.length > 120) {
+    return NextResponse.json({ error: 'Invalid buyer name' }, { status: 400 })
+  }
+  if (buyerPhone.trim().length < 7 || buyerPhone.length > 25) {
+    return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+  }
+  if (deliveryAddress.trim().length < 5 || deliveryAddress.length > 250) {
+    return NextResponse.json({ error: 'Invalid delivery address' }, { status: 400 })
+  }
+  if (city.trim().length < 2 || city.length > 80) {
+    return NextResponse.json({ error: 'Invalid city' }, { status: 400 })
+  }
+  const allowedMethods: PaymentMethod[] = ['esewa', 'khalti', 'cod', 'bank_transfer']
+  if (!allowedMethods.includes(paymentMethod as PaymentMethod)) {
+    return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 })
+  }
+  if (buyerEmail != null) {
+    if (typeof buyerEmail !== 'string' || buyerEmail.length > 160) {
+      return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
+    }
+    const e = buyerEmail.toLowerCase().trim()
+    if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
+    }
+  }
+  if (notes != null && (typeof notes !== 'string' || notes.length > 1000)) {
+    return NextResponse.json({ error: 'Invalid notes' }, { status: 400 })
+  }
+  if (warrantyExtended != null && typeof warrantyExtended !== 'boolean') {
+    return NextResponse.json({ error: 'Invalid warranty flag' }, { status: 400 })
   }
 
   const device = MOCK_DEVICES.find((d) => d.id === deviceId)
@@ -155,7 +202,9 @@ export async function POST(request: NextRequest) {
   const amount = device.price + (warrantyExtended ? 1500 : 0)
   const orderNumber = generateOrderNumber()
   const userId = (session.user as { id?: string }).id || session.user.email!
-  const email = buyerEmail || session.user.email!
+  const email = typeof buyerEmail === 'string' && buyerEmail.trim()
+    ? buyerEmail.toLowerCase().trim()
+    : session.user.email!
 
   const rows = await sql`
     INSERT INTO orders (

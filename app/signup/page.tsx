@@ -17,6 +17,14 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  const passwordError = (pw: string) => {
+    if (pw.length < 12) return 'Password must be at least 12 characters.'
+    if (!/[A-Z]/.test(pw) || !/[a-z]/.test(pw) || !/\d/.test(pw) || !/[^A-Za-z0-9]/.test(pw)) {
+      return 'Use uppercase, lowercase, number, and symbol.'
+    }
+    return null
+  }
+
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true)
@@ -32,8 +40,9 @@ export default function SignupPage() {
     setError('')
     setLoading(true)
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    const pwError = passwordError(password)
+    if (pwError) {
+      setError(pwError)
       setLoading(false)
       return
     }
@@ -169,7 +178,7 @@ export default function SignupPage() {
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
+                  placeholder="Min. 12 with Aa1!"
                   required
                   style={{
                     width: '100%',

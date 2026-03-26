@@ -1,8 +1,87 @@
 import { neon } from '@neondatabase/serverless'
+import { MOCK_DEVICES } from '@/lib/mock-data'
 
 const sql = neon(process.env.DATABASE_URL!)
 
 export { sql }
+
+type DeviceSeed = {
+  id: string
+  category: string
+  model: string
+  storage: string
+  color: string
+  grade: string
+  batteryHealth: number
+  price: number
+  originalPrice?: number
+  imei: string
+  imeiStatus: string
+  icloudLocked: boolean
+  status: string
+  photos: string[]
+  description?: string
+  specs?: unknown
+  createdAt: string
+  rating?: number
+  reviewCount?: number
+}
+
+export async function initDevicesTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS devices (
+      id             TEXT PRIMARY KEY,
+      category       TEXT NOT NULL,
+      model          TEXT NOT NULL,
+      storage        TEXT NOT NULL,
+      color          TEXT NOT NULL,
+      grade          TEXT NOT NULL,
+      battery_health INTEGER NOT NULL,
+      price          INTEGER NOT NULL,
+      original_price INTEGER,
+      imei           TEXT NOT NULL,
+      imei_status    TEXT NOT NULL,
+      icloud_locked  BOOLEAN NOT NULL DEFAULT FALSE,
+      status         TEXT NOT NULL DEFAULT 'available',
+      photos         JSONB NOT NULL DEFAULT '[]'::jsonb,
+      description    TEXT,
+      specs          JSONB,
+      rating         REAL,
+      review_count   INTEGER,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `
+
+  // Safe migrations for older devices tables created before category/specs support
+  await sql`ALTER TABLE devices ADD COLUMN IF NOT EXISTS category TEXT;`
+  await sql`ALTER TABLE devices ADD COLUMN IF NOT EXISTS specs JSONB;`
+  await sql`ALTER TABLE devices ADD COLUMN IF NOT EXISTS rating REAL;`
+  await sql`ALTER TABLE devices ADD COLUMN IF NOT EXISTS review_count INTEGER;`
+  await sql`ALTER TABLE devices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;`
+  await sql`UPDATE devices SET category = COALESCE(category, 'iphone') WHERE category IS NULL;`
+  await sql`UPDATE devices SET updated_at = COALESCE(updated_at, NOW()) WHERE updated_at IS NULL;`
+
+  const rows = await sql`SELECT COUNT(*)::int AS total FROM devices`
+  const total = Number((rows[0] as { total: number | string }).total)
+  if (total > 0) return
+
+  for (const d of MOCK_DEVICES as DeviceSeed[]) {
+    await sql`
+      INSERT INTO devices (
+        id, category, model, storage, color, grade, battery_health,
+        price, original_price, imei, imei_status, icloud_locked, status,
+        photos, description, specs, rating, review_count, created_at, updated_at
+      ) VALUES (
+        ${d.id}, ${d.category}, ${d.model}, ${d.storage}, ${d.color}, ${d.grade}, ${d.batteryHealth},
+        ${d.price}, ${d.originalPrice ?? null}, ${d.imei}, ${d.imeiStatus}, ${d.icloudLocked}, ${d.status},
+        ${JSON.stringify(d.photos ?? [])}::jsonb, ${d.description ?? null}, ${d.specs ? JSON.stringify(d.specs) : null}::jsonb,
+        ${d.rating ?? null}, ${d.reviewCount ?? null}, ${d.createdAt}, NOW()
+      )
+      ON CONFLICT (id) DO NOTHING
+    `
+  }
+}
 
 export async function initUsersTable() {
   await sql`
@@ -81,6 +160,14 @@ export async function initUsersTable() {
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `
+
+  // Query-performance indexes for order dashboards and account pages
+  await sql`CREATE INDEX IF NOT EXISTS orders_buyer_email_idx ON orders (buyer_email);`
+  await sql`CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status);`
+  await sql`CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders (user_id);`
+  await sql`CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders (created_at DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS orders_buyer_email_created_at_idx ON orders (buyer_email, created_at DESC);`
+  await sql`CREATE INDEX IF NOT EXISTS orders_status_created_at_idx ON orders (status, created_at DESC);`
 
   await sql`
     CREATE TABLE IF NOT EXISTS reviews (

@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MOCK_DEVICES } from '@/lib/mock-data'
 import { GradeBadge } from '@/components/trust/GradeBadge'
 import { Plus, Pencil, Trash2, Search, X, AlertTriangle } from 'lucide-react'
 import type { Device, ProductCategory } from '@/types'
@@ -30,22 +29,53 @@ const ALL_CATEGORIES: Array<{ value: ProductCategory | 'all'; label: string }> =
 ]
 
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<Device[]>(MOCK_DEVICES)
+  const [products, setProducts] = useState<Device[]>([])
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filtered = products
-    .filter((d) => categoryFilter === 'all' || d.category === categoryFilter)
-    .filter((d) => {
-      if (!search.trim()) return true
-      const q = search.toLowerCase()
-      return d.model.toLowerCase().includes(q) || d.storage.toLowerCase().includes(q) || d.color.toLowerCase().includes(q)
-    })
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/devices?includeSold=true')
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Failed to load products')
+        setProducts(data.devices ?? [])
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load products')
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
+  }, [])
 
-  const handleDelete = (id: string) => {
-    setProducts((prev) => prev.filter((d) => d.id !== id))
-    setDeleteId(null)
+  const filtered = useMemo(() => (
+    products
+      .filter((d) => categoryFilter === 'all' || d.category === categoryFilter)
+      .filter((d) => {
+        if (!search.trim()) return true
+        const q = search.toLowerCase()
+        return d.model.toLowerCase().includes(q) || d.storage.toLowerCase().includes(q) || d.color.toLowerCase().includes(q)
+      })
+  ), [products, categoryFilter, search])
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/devices/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? 'Failed to delete product')
+      }
+      setProducts((prev) => prev.filter((d) => d.id !== id))
+      setDeleteId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete product')
+    }
   }
 
   return (
@@ -137,7 +167,15 @@ export default function AdminProductsPage() {
       )}
 
       <div className="rounded-[14px] overflow-hidden" style={{ border: '0.5px solid #f0f0ee', background: '#fff' }}>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="py-12 text-center">
+            <p style={{ fontSize: 13, color: '#888' }}>Loading products…</p>
+          </div>
+        ) : error ? (
+          <div className="py-12 text-center">
+            <p style={{ fontSize: 13, color: '#e24b4a' }}>{error}</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="py-12 text-center">
             <p style={{ fontSize: 13, color: '#888' }}>No products found.</p>
           </div>

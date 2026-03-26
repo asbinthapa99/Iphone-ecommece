@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [otp, setOtp] = useState(['', '', '', '', '', '', '', ''])
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
     const next = [...otp]
     next[i] = val.slice(-1)
     setOtp(next)
-    if (val && i < 5) otpRefs.current[i + 1]?.focus()
+    if (val && i < otp.length - 1) otpRefs.current[i + 1]?.focus()
   }
 
   const handleOtpKeyDown = (i: number, e: React.KeyboardEvent) => {
@@ -73,10 +73,10 @@ export default function ForgotPasswordPage() {
   }
 
   const handleOtpPaste = (e: React.ClipboardEvent) => {
-    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('')
-    if (digits.length === 6) {
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, otp.length).split('')
+    if (digits.length === otp.length) {
       setOtp(digits)
-      otpRefs.current[5]?.focus()
+      otpRefs.current[otp.length - 1]?.focus()
     }
   }
 
@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     const code = otp.join('')
-    if (code.length < 6) { setError('Enter the full 6-digit code.'); return }
+    if (code.length < otp.length) { setError(`Enter the full ${otp.length}-digit code.`); return }
     setError('')
     // Just move forward — actual verify happens with password reset
     setStep('password')
@@ -134,7 +134,7 @@ export default function ForgotPasswordPage() {
                 {step === 'email' ? 'Forgot password?' : step === 'otp' ? 'Enter your code' : 'Set new password'}
               </h1>
               <p style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
-                {step === 'email' && "We'll email you a 6-digit code"}
+                {step === 'email' && "We'll email you an 8-digit code"}
                 {step === 'otp' && `We sent a code to ${email}`}
                 {step === 'password' && 'Choose a strong new password'}
               </p>
@@ -208,7 +208,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div>
                 <p style={{ fontSize: 12, color: '#888', marginBottom: 16, textAlign: 'center' }}>
-                  Enter the 6-digit code from your email
+                  Enter the 8-digit code from your email
                 </p>
                 <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
                   {otp.map((digit, i) => (

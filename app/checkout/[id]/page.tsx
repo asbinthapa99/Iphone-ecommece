@@ -191,7 +191,7 @@ export default function CheckoutPage() {
         const esewaRes = await fetch('/api/payment/esewa/initiate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: data.order.id, amount: total }),
+          body: JSON.stringify({ orderId: data.order.id }),
         })
         const esewaData = await esewaRes.json()
         if (esewaData.formUrl) { window.location.href = esewaData.formUrl; return }
@@ -199,7 +199,7 @@ export default function CheckoutPage() {
         const khaltiRes = await fetch('/api/payment/khalti/initiate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: data.order.id, amount: total }),
+          body: JSON.stringify({ orderId: data.order.id }),
         })
         const khaltiData = await khaltiRes.json()
         if (khaltiData.paymentUrl) { window.location.href = khaltiData.paymentUrl; return }
