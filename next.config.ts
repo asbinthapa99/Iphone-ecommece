@@ -28,9 +28,30 @@ const nextConfig: NextConfig = {
       },
       // Public assets — 1 week
       {
-        source: '/:path(favicon.ico|og-default\\.jpg|logo\\.png)',
+        source: '/:path(favicon.ico|og-default\\.jpg|logo\\.png|apple-touch-icon\\.png|icon-192\\.png|icon-512\\.png)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' },
+        ],
+      },
+      // Manifest should refresh quickly so install metadata stays current
+      {
+        source: '/manifest.json',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      // Service worker must not be aggressively cached
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      // Offline fallback page can be cached but should update frequently
+      {
+        source: '/offline.html',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
         ],
       },
       // Sitemap — revalidate daily

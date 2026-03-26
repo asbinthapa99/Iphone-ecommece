@@ -9,6 +9,7 @@ import { CapacitorInit } from "@/components/layout/CapacitorInit";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { CartProvider } from "@/lib/cart";
 import { CookieConsent } from "@/components/layout/CookieConsent";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { organizationJsonLd, websiteJsonLd, SITE_URL, SITE_NAME, SITE_TAGLINE } from "@/lib/seo";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -109,6 +110,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartProvider>
           <AuthProvider>
             <CapacitorInit />
+            <ServiceWorkerRegister />
             <TopBanner />
             <Nav />
             {children}

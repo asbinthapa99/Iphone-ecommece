@@ -11,7 +11,7 @@ const RATE_LIMIT_RULES: Record<string, { limit: number; windowMs: number }> = {
   '/api/auth/callback':       { limit: 10, windowMs:  5 * 60 * 1000 }, // 10 / 5 min (login)
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // ── Rate limiting on auth POST routes ────────────────────────────────────

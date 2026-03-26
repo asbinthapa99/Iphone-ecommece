@@ -2,8 +2,11 @@
   "name": "Inexa Nepal",
   "short_name": "Inexa",
   "description": "Nepal's most trusted marketplace for verified used iPhones & gadgets",
-  "start_url": "/",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
   "background_color": "#060d0a",
   "theme_color": "#060d0a",
@@ -21,6 +24,25 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Browse iPhones",
+      "short_name": "iPhones",
+      "url": "/phones"
+    },
+    {
+      "name": "Shop Gadgets",
+      "short_name": "Gadgets",
+      "url": "/gadgets"
+    },
+    {
+      "name": "Sell Device",
+      "short_name": "Sell",
+      "url": "/sell"
+    }
+  ],
   "categories": ["shopping", "business"],
-  "lang": "en-NP"
+  "lang": "en-NP",
+  "dir": "ltr",
+  "prefer_related_applications": false
 }
