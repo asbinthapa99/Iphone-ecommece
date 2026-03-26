@@ -6,6 +6,10 @@ const sql = neon(process.env.DATABASE_URL!)
 
 export { sql }
 
+// Module-level flags so we only run heavy migrations once per serverless instance
+let devicesTableReady = false
+let usersTableReady = false
+
 type DeviceSeed = {
   id: string
   category: string
@@ -29,6 +33,7 @@ type DeviceSeed = {
 }
 
 export async function initDevicesTable() {
+  if (devicesTableReady) return
   await sql`
     CREATE TABLE IF NOT EXISTS devices (
       id             TEXT PRIMARY KEY,
@@ -65,26 +70,29 @@ export async function initDevicesTable() {
 
   const rows = await sql`SELECT COUNT(*)::int AS total FROM devices`
   const total = Number((rows[0] as { total: number | string }).total)
-  if (total > 0) return
-
-  for (const d of MOCK_DEVICES as DeviceSeed[]) {
-    await sql`
-      INSERT INTO devices (
-        id, category, model, storage, color, grade, battery_health,
-        price, original_price, imei, imei_status, icloud_locked, status,
-        photos, description, specs, rating, review_count, created_at, updated_at
-      ) VALUES (
-        ${d.id}, ${d.category}, ${d.model}, ${d.storage}, ${d.color}, ${d.grade}, ${d.batteryHealth},
-        ${d.price}, ${d.originalPrice ?? null}, ${d.imei}, ${d.imeiStatus}, ${d.icloudLocked}, ${d.status},
-        ${JSON.stringify(d.photos ?? [])}::jsonb, ${d.description ?? null}, ${d.specs ? JSON.stringify(d.specs) : null}::jsonb,
-        ${d.rating ?? null}, ${d.reviewCount ?? null}, ${d.createdAt}, NOW()
-      )
-      ON CONFLICT (id) DO NOTHING
-    `
+  if (total === 0) {
+    for (const d of MOCK_DEVICES as DeviceSeed[]) {
+      await sql`
+        INSERT INTO devices (
+          id, category, model, storage, color, grade, battery_health,
+          price, original_price, imei, imei_status, icloud_locked, status,
+          photos, description, specs, rating, review_count, created_at, updated_at
+        ) VALUES (
+          ${d.id}, ${d.category}, ${d.model}, ${d.storage}, ${d.color}, ${d.grade}, ${d.batteryHealth},
+          ${d.price}, ${d.originalPrice ?? null}, ${d.imei}, ${d.imeiStatus}, ${d.icloudLocked}, ${d.status},
+          ${JSON.stringify(d.photos ?? [])}::jsonb, ${d.description ?? null}, ${d.specs ? JSON.stringify(d.specs) : null}::jsonb,
+          ${d.rating ?? null}, ${d.reviewCount ?? null}, ${d.createdAt}, NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `
+    }
   }
+
+  devicesTableReady = true
 }
 
 export async function initUsersTable() {
+  if (usersTableReady) return
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -204,4 +212,6 @@ export async function initUsersTable() {
 
   // Add photos column to reviews (safe migration for existing tables)
   await sql`ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'::jsonb;`
+
+  usersTableReady = true
 }

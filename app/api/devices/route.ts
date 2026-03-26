@@ -122,9 +122,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin()
-  if (!admin.ok) {
-    return NextResponse.json({ error: admin.status === 401 ? 'Unauthorized' : 'Forbidden' }, { status: admin.status })
+  try {
+    const admin = await requireAdmin()
+    if (!admin.ok) {
+      return NextResponse.json({ error: admin.status === 401 ? 'Unauthorized' : 'Forbidden' }, { status: admin.status })
+    }
+  } catch (err) {
+    console.error('Auth check failed:', err)
+    return NextResponse.json({ error: 'Authentication error. Please sign out and sign in again.' }, { status: 500 })
   }
 
   try {

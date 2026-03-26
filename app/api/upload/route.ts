@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { uploadImages } from '@/lib/upload'
 import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
 const LIMITS = {
   products: { maxFiles: 12, maxBytes: 5 * 1024 * 1024 },  // 12 photos, 5 MB each
@@ -35,7 +36,9 @@ export async function POST(req: NextRequest) {
   const { maxFiles, maxBytes } = LIMITS[folder]
 
   // Admin-only for product uploads
-  const isAdmin = (session.user as { isAdmin?: boolean }).isAdmin === true
+  const isAdmin =
+    (session.user as { isAdmin?: boolean }).isAdmin === true ||
+    isPrimaryAdminEmail(session.user.email)
   if (folder === 'products' && !isAdmin) {
     return NextResponse.json({ error: 'Only admins can upload product photos.' }, { status: 403 })
   }
