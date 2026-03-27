@@ -80,7 +80,7 @@ export async function initDevicesTable() {
         ) VALUES (
           ${d.id}, ${d.category}, ${d.model}, ${d.storage}, ${d.color}, ${d.grade}, ${d.batteryHealth},
           ${d.price}, ${d.originalPrice ?? null}, ${d.imei}, ${d.imeiStatus}, ${d.icloudLocked}, ${d.status},
-          ${JSON.stringify(d.photos ?? [])}::jsonb, ${d.description ?? null}, ${d.specs ? JSON.stringify(d.specs) : null}::jsonb,
+          ${d.photos ?? []}, ${d.description ?? null}, ${d.specs ? JSON.stringify(d.specs) : null}::jsonb,
           ${d.rating ?? null}, ${d.reviewCount ?? null}, ${d.createdAt}, NOW()
         )
         ON CONFLICT (id) DO NOTHING
