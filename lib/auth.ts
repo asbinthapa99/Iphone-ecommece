@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { initUsersTable, sql } from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
 import { isPrimaryAdminEmail } from '@/lib/admin-emails'
+import { rateLimit } from '@/lib/rate-limit'
 
 async function resolveIsAdmin(email: string): Promise<boolean> {
   const normalizedEmail = email.toLowerCase().trim()
@@ -31,9 +32,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email and password are required.')
+        }
+
+        // Rate limit: 10 attempts per 5 minutes per IP
+        const ip =
+          (req?.headers?.['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ??
+          (req?.headers?.['x-real-ip'] as string | undefined) ??
+          'unknown'
+        const { allowed } = await rateLimit(`login:${ip}`, 10, 5 * 60 * 1000)
+        if (!allowed) {
+          throw new Error('Too many login attempts. Please wait 5 minutes and try again.')
         }
 
         await initUsersTable()
