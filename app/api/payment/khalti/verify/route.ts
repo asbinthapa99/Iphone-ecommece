@@ -9,12 +9,12 @@ export async function GET(request: NextRequest) {
   const pidx = searchParams.get('pidx')
 
   if (!orderId || !pidx) {
-    return NextResponse.redirect(new URL('/?payment=failed', request.url))
+    return NextResponse.redirect(new URL('/?payment=failed', process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
   }
 
   try {
     const secretKey = process.env.KHALTI_SECRET_KEY
-    if (!secretKey) return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, request.url))
+    if (!secretKey) return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
 
     await initUsersTable()
     const orderRows = await sql`
@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
       LIMIT 1
     `
     if (orderRows.length === 0) {
-      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, request.url))
+      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
     }
     const order = orderRows[0] as { id: string; amount: number; payment_ref: string | null; payment_status: string }
     if (order.payment_status === 'paid') {
-      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation`, request.url))
+      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
     }
     if (!order.payment_ref || order.payment_ref !== pidx) {
-      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, request.url))
+      return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
     }
 
     const res = await fetch('https://a.khalti.com/api/v2/epayment/lookup/', {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       (lookupOrderId !== null && lookupOrderId !== orderId)
     ) {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+        new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
 
@@ -78,11 +78,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      new URL(`/order/${orderId}/confirmation`, request.url)
+      new URL(`/order/${orderId}/confirmation`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
     )
   } catch {
     return NextResponse.redirect(
-      new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+      new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
     )
   }
 }

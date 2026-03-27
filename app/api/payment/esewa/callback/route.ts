@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const data = searchParams.get('data') // eSewa base64 encoded response
 
   if (!orderId || !data) {
-    return NextResponse.redirect(new URL('/?payment=failed', request.url))
+    return NextResponse.redirect(new URL('/?payment=failed', process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
   }
 
   try {
@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
 
     const secretKey = process.env.ESEWA_SECRET_KEY
     const merchantId = process.env.ESEWA_MERCHANT_ID
-    if (!secretKey || !merchantId) return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, request.url))
+    if (!secretKey || !merchantId) return NextResponse.redirect(new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com'))
 
     const message = `transaction_uuid=${transaction_uuid},status=${status},total_amount=${total_amount},product_code=${merchantId}`
     const expectedSig = crypto.createHmac('sha256', secretKey).update(message).digest('base64')
 
     if (signature !== expectedSig || status !== 'COMPLETE') {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+        new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
 
@@ -40,24 +40,24 @@ export async function GET(request: NextRequest) {
     `
     if (rows.length === 0) {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+        new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
     const order = rows[0] as { id: string; amount: number; payment_ref: string | null; payment_status: string }
     if (order.payment_status === 'paid') {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation`, request.url)
+        new URL(`/order/${orderId}/confirmation`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
     if (!order.payment_ref || order.payment_ref !== transaction_uuid) {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+        new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
     const paidAmount = Number(total_amount)
     if (!Number.isFinite(paidAmount) || paidAmount !== order.amount) {
       return NextResponse.redirect(
-        new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+        new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
       )
     }
 
@@ -79,11 +79,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      new URL(`/order/${orderId}/confirmation`, request.url)
+      new URL(`/order/${orderId}/confirmation`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
     )
   } catch {
     return NextResponse.redirect(
-      new URL(`/order/${orderId}/confirmation?status=failed`, request.url)
+      new URL(`/order/${orderId}/confirmation?status=failed`, process.env.NEXT_PUBLIC_BASE_URL ?? 'https://inexanepal.com')
     )
   }
 }

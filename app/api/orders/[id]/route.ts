@@ -96,6 +96,22 @@ export async function PATCH(
     notes?: string
   }
 
+  const allowedStatuses: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']
+  const allowedPaymentStatuses: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
+
+  if (status != null && !allowedStatuses.includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+  }
+  if (paymentStatus != null && !allowedPaymentStatuses.includes(paymentStatus)) {
+    return NextResponse.json({ error: 'Invalid payment status' }, { status: 400 })
+  }
+  if (trackingNumber != null && (typeof trackingNumber !== 'string' || trackingNumber.length > 100)) {
+    return NextResponse.json({ error: 'Invalid tracking number' }, { status: 400 })
+  }
+  if (notes != null && (typeof notes !== 'string' || notes.length > 1000)) {
+    return NextResponse.json({ error: 'Invalid notes' }, { status: 400 })
+  }
+
   await initUsersTable()
 
   // Fetch existing to merge + send correct emails
