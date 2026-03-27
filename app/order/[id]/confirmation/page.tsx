@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, Package, ArrowRight, Banknote } from 'lucide-react'
+import { CheckCircle2, Package, ArrowRight, Banknote, Clock } from 'lucide-react'
 import { PaymentBadges } from '@/components/ui/PaymentBadges'
 import type { Order } from '@/types'
 
@@ -25,23 +25,54 @@ export default function OrderConfirmationPage() {
         {/* Success animation */}
         <div
           className="mx-auto mb-5 flex items-center justify-center rounded-full animate-scaleIn"
-          style={{ width: 72, height: 72, background: '#E1F5EE' }}
+          style={{
+            width: 72, height: 72,
+            background: order?.paymentMethod === 'qr' ? '#fff7ed' : '#E1F5EE',
+          }}
         >
-          <CheckCircle2 size={36} color="#1D9E75" />
+          {order?.paymentMethod === 'qr'
+            ? <Clock size={36} color="#d97706" />
+            : <CheckCircle2 size={36} color="#1D9E75" />
+          }
         </div>
 
         <h1
           className="animate-blurUp"
           style={{ fontSize: 24, fontWeight: 800, color: '#060d0a', letterSpacing: '-0.6px', marginBottom: 8 }}
         >
-          Order placed!
+          {order?.paymentMethod === 'qr' ? 'Order pending review' : 'Order placed!'}
         </h1>
         <p
           className="animate-blurUp delay-100"
           style={{ fontSize: 13, color: '#888', lineHeight: 1.7, marginBottom: 24 }}
         >
-          Thank you for your purchase. Our team will contact you to confirm delivery.
+          {order?.paymentMethod === 'qr'
+            ? 'We received your QR payment reference. Our team will verify the transaction and confirm your order shortly.'
+            : 'Thank you for your purchase. Our team will contact you to confirm delivery.'
+          }
         </p>
+
+        {order?.paymentMethod === 'qr' && (
+          <div
+            className="flex items-start gap-3 rounded-[14px] p-4 mb-5 text-left"
+            style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}
+          >
+            <Clock size={18} color="#d97706" className="shrink-0 mt-0.5" />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 3 }}>
+                Payment Pending Verification
+              </p>
+              <p style={{ fontSize: 12, color: '#b45309', lineHeight: 1.6 }}>
+                Our admin will verify your QR transaction and confirm your order. You&apos;ll receive an email once confirmed.
+              </p>
+              {order.paymentRef && (
+                <p style={{ fontSize: 11, color: '#92400e', marginTop: 6, fontFamily: 'monospace' }}>
+                  Txn ID: {order.paymentRef}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {order?.paymentMethod === 'cod' && (
           <div

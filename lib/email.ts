@@ -5,6 +5,8 @@ import { deliveryInProcessEmail } from './emails/delivery-in-process'
 import { deliveredEmail } from './emails/delivered'
 import { resetOtpEmail as getResetOtpEmail } from './emails/reset-otp'
 import { welcomeEmail as getWelcomeEmail } from './emails/welcome'
+import { adminNewOrderEmail } from './emails/admin-new-order'
+import { orderCancelledEmail } from './emails/order-cancelled'
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
@@ -84,4 +86,17 @@ export async function sendWelcomeEmail(email: string, name?: string | null) {
   const normalized = email.toLowerCase().trim()
   const { subject, html } = getWelcomeEmail(name ?? null, SITE_URL)
   await send(normalized, subject, html)
+}
+
+export async function sendAdminNewOrder(order: Order) {
+  const adminEmail = process.env.ADMIN_EMAIL
+  if (!adminEmail) return
+  const { subject, html } = adminNewOrderEmail(order, SITE_URL)
+  await send(adminEmail, subject, html)
+}
+
+export async function sendOrderCancelled(order: Order) {
+  if (!order.buyerEmail) return
+  const { subject, html } = orderCancelledEmail(order, SITE_URL)
+  await send(order.buyerEmail, subject, html)
 }

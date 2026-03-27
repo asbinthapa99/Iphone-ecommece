@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Order, PaymentMethod } from '@/types'
-import { sendOrderConfirmed } from '@/lib/email'
+import { sendOrderConfirmed, sendAdminNewOrder } from '@/lib/email'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { sql, initDevicesTable, initUsersTable } from '@/lib/db'
@@ -123,6 +123,7 @@ interface CreateOrderRequestBody {
   city: string
   paymentMethod: PaymentMethod
   paymentStatus?: 'pending' | 'paid'
+  paymentRef?: string
   warrantyExtended?: boolean
   notes?: string
 }
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
     city,
     paymentMethod,
     paymentStatus,
+    paymentRef,
     warrantyExtended,
     notes,
   } = body
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
   if (city.trim().length < 2 || city.length > 80) {
     return NextResponse.json({ error: 'Invalid city' }, { status: 400 })
   }
-  const allowedMethods: PaymentMethod[] = ['esewa', 'khalti', 'cod', 'bank_transfer']
+  const allowedMethods: PaymentMethod[] = ['esewa', 'khalti', 'cod', 'bank_transfer', 'qr']
   if (!allowedMethods.includes(paymentMethod as PaymentMethod)) {
     return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 })
   }
@@ -237,15 +239,17 @@ export async function POST(request: NextRequest) {
     : session.user.email!
   const photoList = Array.isArray(device.photos) ? (device.photos as string[]) : []
 
+  const ref = typeof paymentRef === 'string' && paymentRef.trim() ? paymentRef.trim() : null
+
   const rows = await sql`
     INSERT INTO orders (
       order_number, user_id, buyer_name, buyer_phone, buyer_email,
-      delivery_address, city, payment_method, payment_status, amount,
+      delivery_address, city, payment_method, payment_status, payment_ref, amount,
       warranty_extended, status, notes,
       device_id, device_model, device_storage, device_grade, device_price, device_photo
     ) VALUES (
       ${orderNumber}, ${userId}, ${buyerName}, ${buyerPhone}, ${email},
-      ${deliveryAddress}, ${city}, ${paymentMethod}, ${paymentStatus ?? 'pending'}, ${amount},
+      ${deliveryAddress}, ${city}, ${paymentMethod}, ${paymentStatus ?? 'pending'}, ${ref}, ${amount},
       ${!!warrantyExtended}, 'pending', ${notes ?? null},
       ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${photoList[0] ?? null}
     )
@@ -260,8 +264,9 @@ export async function POST(request: NextRequest) {
     WHERE id = ${device.id}
   `
 
-  // Fire-and-forget — don't block response on email
+  // Fire-and-forget — don't block response on emails
   sendOrderConfirmed(order).catch(console.error)
+  sendAdminNewOrder(order).catch(console.error)
 
   return NextResponse.json({ order }, { status: 201 })
 }

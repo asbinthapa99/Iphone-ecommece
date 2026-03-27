@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types'
-import { sendPaymentSuccess, sendDeliveryInProcess, sendDelivered } from '@/lib/email'
+import { sendPaymentSuccess, sendDeliveryInProcess, sendDelivered, sendOrderCancelled } from '@/lib/email'
 import { sql, initUsersTable } from '@/lib/db'
 import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
@@ -120,6 +120,7 @@ export async function PATCH(
   if (paymentStatus === 'paid') sendPaymentSuccess(order).catch(console.error)
   if (status === 'shipped') sendDeliveryInProcess({ ...order, trackingNumber }).catch(console.error)
   if (status === 'delivered') sendDelivered(order).catch(console.error)
+  if (status === 'cancelled') sendOrderCancelled(order).catch(console.error)
 
   return NextResponse.json({ order })
 }
