@@ -31,7 +31,10 @@ const ERROR_MESSAGES: Record<string, string> = {
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/account'
+  const raw = searchParams.get('callbackUrl') ?? ''
+  // Only allow same-origin relative paths. Reject absolute URLs (https://evil.com)
+  // and protocol-relative URLs (//evil.com).
+  const callbackUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/account'
   const urlError = searchParams.get('error')
 
   const [email, setEmail] = useState('')

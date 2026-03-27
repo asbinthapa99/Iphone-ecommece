@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search')
   const minPrice = Number(searchParams.get('minPrice') ?? 0)
   const maxPrice = Number(searchParams.get('maxPrice') ?? Number.MAX_SAFE_INTEGER)
+  const page = Math.max(1, Number(searchParams.get('page') ?? 1))
+  const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? 20)))
   const includeSoldRequested = searchParams.get('includeSold') === 'true'
   let includeSold = false
   if (includeSoldRequested) {
@@ -115,13 +117,22 @@ export async function GET(request: NextRequest) {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-  const rows = await sql.query(
-    `SELECT * FROM devices ${where} ORDER BY created_at DESC`,
+
+  const countRows = await sql.query(
+    `SELECT COUNT(*) AS total FROM devices ${where}`,
     args
+  ) as unknown as Array<{ total: string }>
+  const total = Number(countRows[0].total)
+  const totalPages = Math.ceil(total / limit)
+  const offset = (page - 1) * limit
+
+  const rows = await sql.query(
+    `SELECT * FROM devices ${where} ORDER BY created_at DESC LIMIT $${argIdx} OFFSET $${argIdx + 1}`,
+    [...args, limit, offset]
   ) as unknown as DeviceRow[]
 
   return NextResponse.json(
-    { devices: rows.map(rowToDevice) },
+    { devices: rows.map(rowToDevice), pagination: { total, page, limit, totalPages } },
     { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' } }
   )
 }
