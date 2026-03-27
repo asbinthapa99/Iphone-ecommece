@@ -214,20 +214,29 @@ export async function POST(request: NextRequest) {
   }
 
   await initDevicesTable()
-  const deviceRows = await sql`
-    SELECT id, model, storage, grade, price, photos, status
-    FROM devices
-    WHERE id = ${deviceId}
-    LIMIT 1
-  ` as unknown as DeviceForOrderRow[]
 
-  if (deviceRows.length === 0) {
+  // First check device exists at all
+  const deviceCheck = await sql`
+    SELECT id FROM devices WHERE id = ${deviceId} LIMIT 1
+  ` as unknown as { id: string }[]
+  if (deviceCheck.length === 0) {
     return NextResponse.json({ error: 'Device not found' }, { status: 404 })
   }
-  const device = deviceRows[0]
-  if (device.status !== 'available') {
+
+  // Atomic reserve: only succeeds if status is still 'available'.
+  // Eliminates the read-check-then-update race condition — two concurrent
+  // requests cannot both pass this; only one UPDATE will match the WHERE.
+  const reserved = await sql`
+    UPDATE devices
+    SET status = 'reserved', updated_at = NOW()
+    WHERE id = ${deviceId} AND status = 'available'
+    RETURNING id, model, storage, grade, price, photos
+  ` as unknown as DeviceForOrderRow[]
+
+  if (reserved.length === 0) {
     return NextResponse.json({ error: 'Device is no longer available' }, { status: 409 })
   }
+  const device = reserved[0]
 
   await initUsersTable()
 
@@ -241,6 +250,7 @@ export async function POST(request: NextRequest) {
 
   const ref = typeof paymentRef === 'string' && paymentRef.trim() ? paymentRef.trim() : null
 
+  // Always start as 'pending' — never trust client-supplied paymentStatus
   const rows = await sql`
     INSERT INTO orders (
       order_number, user_id, buyer_name, buyer_phone, buyer_email,
@@ -249,7 +259,7 @@ export async function POST(request: NextRequest) {
       device_id, device_model, device_storage, device_grade, device_price, device_photo
     ) VALUES (
       ${orderNumber}, ${userId}, ${buyerName}, ${buyerPhone}, ${email},
-      ${deliveryAddress}, ${city}, ${paymentMethod}, ${paymentStatus ?? 'pending'}, ${ref}, ${amount},
+      ${deliveryAddress}, ${city}, ${paymentMethod}, 'pending', ${ref}, ${amount},
       ${!!warrantyExtended}, 'pending', ${notes ?? null},
       ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${photoList[0] ?? null}
     )
@@ -257,12 +267,6 @@ export async function POST(request: NextRequest) {
   `
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
-
-  await sql`
-    UPDATE devices
-    SET status = 'reserved', updated_at = NOW()
-    WHERE id = ${device.id}
-  `
 
   // Fire-and-forget — don't block response on emails
   sendOrderConfirmed(order).catch(console.error)
