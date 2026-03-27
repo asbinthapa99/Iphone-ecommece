@@ -23,7 +23,8 @@ export function adminNewOrderEmail(order: Order, siteUrl = 'https://inexanepal.c
         ${orderRow('Payment Method', payLabel[order.paymentMethod] ?? order.paymentMethod)}
         ${isQr && order.paymentRef ? orderRow('Transaction ID', order.paymentRef) : ''}
         ${orderRow('Delivery to', `${order.deliveryAddress}, ${order.city}`)}
-        ${orderRow('Amount', `NPR ${order.amount.toLocaleString()}`, true)}
+        ${orderRow('Amount', `NPR ${order.amount.toLocaleString()}`, !order.notes)}
+        ${order.notes ? orderRow('Customer Note', order.notes, true) : ''}
       </table>
     </td></tr>
 

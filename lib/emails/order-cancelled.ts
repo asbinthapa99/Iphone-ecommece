@@ -11,7 +11,8 @@ export function orderCancelledEmail(order: Order, siteUrl = 'https://inexanepal.
       <table width="100%" cellpadding="0" cellspacing="0">
         ${orderRow('Order Number', `#${order.orderNumber}`)}
         ${orderRow('Device', `${order.device.model} ${order.device.storage}`)}
-        ${orderRow('Amount', `NPR ${order.amount.toLocaleString()}`, true)}
+        ${orderRow('Amount', `NPR ${order.amount.toLocaleString()}`, !order.notes)}
+        ${order.notes ? orderRow('Reason', order.notes, true) : ''}
       </table>
     </td></tr>
 
