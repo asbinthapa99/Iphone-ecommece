@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
         ${id}, ${category}, ${model}, ${storage}, ${color},
         ${grade}, ${Math.round(batteryHealth)}, ${Math.round(price)}, ${originalPrice == null ? null : Math.round(originalPrice)},
         ${safeImei}, ${imeiStatus}, ${!!body.icloudLocked}, ${status},
-        ${JSON.stringify(photos)}::jsonb, ${body.description?.trim() ?? null},
+        ${photos}, ${body.description?.trim() ?? null},
         ${body.specs ? JSON.stringify(body.specs) : null}::jsonb, NOW(), NOW()
       )
       RETURNING *
@@ -208,7 +208,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ device: rowToDevice(rows[0]) }, { status: 201 })
   } catch (err) {
-    console.error('Failed to create product:', err)
-    return NextResponse.json({ error: 'Failed to create product.' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    const code = (err as { code?: string }).code
+    console.error('[devices POST] Failed to create product:', { message, code, err })
+
+    // Surface constraint violations as readable messages
+    if (code === '23505') {
+      return NextResponse.json({ error: 'A device with this IMEI already exists.' }, { status: 409 })
+    }
+    if (code === '23502') {
+      return NextResponse.json({ error: `Missing required field: ${message}` }, { status: 400 })
+    }
+    return NextResponse.json({ error: `Failed to create product: ${message}` }, { status: 500 })
   }
 }
