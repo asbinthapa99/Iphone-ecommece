@@ -198,7 +198,7 @@ export default function CheckoutPage() {
 
   const total = device.price + (warrantyExtended ? 1500 : 0)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
@@ -511,17 +511,16 @@ export default function CheckoutPage() {
                               </div>
                             </div>
 
-                            {/* Transaction ID input */}
+                            {/* Transaction ID input — optional */}
                             <div>
                               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#065f46', marginBottom: 6 }}>
-                                Transaction ID / Reference *
+                                Transaction ID / Reference <span style={{ fontWeight: 400, color: '#047857' }}>(optional)</span>
                               </label>
                               <input
                                 type="text"
                                 value={txnId}
                                 onChange={(e) => setTxnId(e.target.value)}
                                 placeholder="e.g. 202501241234567890"
-                                required={paymentMethod === 'qr'}
                                 style={{
                                   width: '100%', padding: '10px 12px', borderRadius: 10,
                                   border: '1.5px solid #6ee7b7', fontSize: 13, color: '#065f46',
@@ -531,7 +530,7 @@ export default function CheckoutPage() {
                                 onBlur={(e) => { e.currentTarget.style.borderColor = '#6ee7b7' }}
                               />
                               <p style={{ fontSize: 10, color: '#059669', marginTop: 4 }}>
-                                Enter the transaction ID shown after payment to confirm your order.
+                                Enter your transaction ID if you have one — admin will verify your payment and confirm the order.
                               </p>
                             </div>
                           </div>
@@ -727,13 +726,13 @@ export default function CheckoutPage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim())}
+                disabled={submitting || paymentMethod === 'esewa'}
                 className="w-full flex items-center justify-center gap-2 rounded-[14px] transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{
                   padding: '15px',
-                  background: submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim()) ? '#ccc' : '#060d0a',
+                  background: submitting || paymentMethod === 'esewa' ? '#ccc' : '#060d0a',
                   color: '#fff', fontSize: 15, fontWeight: 800,
-                  border: 'none', cursor: submitting || paymentMethod === 'esewa' || (paymentMethod === 'qr' && !txnId.trim()) ? 'not-allowed' : 'pointer',
+                  border: 'none', cursor: submitting || paymentMethod === 'esewa' ? 'not-allowed' : 'pointer',
                   letterSpacing: '-0.3px',
                 }}
               >
