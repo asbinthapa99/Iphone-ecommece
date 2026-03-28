@@ -74,6 +74,11 @@ export function PhoneCard({ device }: { device: Device }) {
             -{savingsPct}%
           </span>
         )}
+        {device.status === 'available' && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] bg-[#fef9c3] text-[10px] font-bold text-[#854d0e] tracking-wide uppercase">
+            Only 1 left
+          </span>
+        )}
       </div>
 
       {/* Wishlist top-right */}
@@ -102,7 +107,7 @@ export function PhoneCard({ device }: { device: Device }) {
           <span className="text-[72px] opacity-20 select-none">📱</span>
         )}
 
-        {device.status === 'sold' && (
+        {device.status !== 'available' && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-t-[16px]">
             <span className="text-[11px] font-bold text-white bg-black px-4 py-1.5 rounded-full tracking-wide">SOLD OUT</span>
           </div>
@@ -161,7 +166,7 @@ export function PhoneCard({ device }: { device: Device }) {
             )}
           </div>
 
-          {device.status !== 'sold' && (
+          {device.status === 'available' && (
             <div className="flex items-center gap-1.5 shrink-0">
               {/* Add to cart */}
               <button

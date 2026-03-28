@@ -193,6 +193,16 @@ export async function initUsersTable() {
     try { await sql.query(q, []) } catch { /* already exists */ }
   }
 
+  // Drop old payment_method check constraint that excluded 'qr', then recreate with full list
+  try {
+    await sql.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_method_check`, [])
+    await sql.query(
+      `ALTER TABLE orders ADD CONSTRAINT orders_payment_method_check
+       CHECK (payment_method IN ('esewa','khalti','cod','bank_transfer','qr'))`,
+      []
+    )
+  } catch { /* ignore if table doesn't have the constraint */ }
+
   // Query-performance indexes for order dashboards and account pages
   await sql`CREATE INDEX IF NOT EXISTS orders_buyer_email_idx ON orders (buyer_email);`
   await sql`CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status);`
