@@ -251,20 +251,30 @@ export async function POST(request: NextRequest) {
   const ref = typeof paymentRef === 'string' && paymentRef.trim() ? paymentRef.trim() : null
 
   // Always start as 'pending' — never trust client-supplied paymentStatus
-  const rows = await sql`
-    INSERT INTO orders (
-      order_number, user_id, buyer_name, buyer_phone, buyer_email,
-      delivery_address, city, payment_method, payment_status, payment_ref, amount,
-      warranty_extended, status, notes,
-      device_id, device_model, device_storage, device_grade, device_price, device_photo
-    ) VALUES (
-      ${orderNumber}, ${userId}, ${buyerName}, ${buyerPhone}, ${email},
-      ${deliveryAddress}, ${city}, ${paymentMethod}, 'pending', ${ref}, ${amount},
-      ${!!warrantyExtended}, 'pending', ${notes ?? null},
-      ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${photoList[0] ?? null}
-    )
-    RETURNING *
-  `
+  let rows
+  try {
+    rows = await sql`
+      INSERT INTO orders (
+        order_number, user_id, buyer_name, buyer_phone, buyer_email,
+        delivery_address, city, payment_method, payment_status, payment_ref, amount,
+        warranty_extended, status, notes,
+        device_id, device_model, device_storage, device_grade, device_price, device_photo
+      ) VALUES (
+        ${orderNumber}, ${userId}, ${buyerName}, ${buyerPhone}, ${email},
+        ${deliveryAddress}, ${city}, ${paymentMethod}, 'pending', ${ref}, ${amount},
+        ${!!warrantyExtended}, 'pending', ${notes ?? null},
+        ${device.id}, ${device.model}, ${device.storage}, ${device.grade}, ${device.price}, ${photoList[0] ?? null}
+      )
+      RETURNING *
+    `
+  } catch (insertErr) {
+    // Roll back the device reservation so it can be purchased again
+    await sql`
+      UPDATE devices SET status = 'available', updated_at = NOW()
+      WHERE id = ${device.id} AND status = 'reserved'
+    `.catch(console.error)
+    throw insertErr
+  }
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
 

@@ -133,6 +133,14 @@ export async function PATCH(
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
 
+  // When cancelled, release the device back to available so it can be purchased again
+  if (status === 'cancelled') {
+    await sql`
+      UPDATE devices SET status = 'available', updated_at = NOW()
+      WHERE id = ${order.device.deviceId} AND status = 'reserved'
+    `
+  }
+
   if (paymentStatus === 'paid') sendPaymentSuccess(order).catch(console.error)
   if (status === 'shipped') sendDeliveryInProcess({ ...order, trackingNumber }).catch(console.error)
   if (status === 'delivered') sendDelivered(order).catch(console.error)
