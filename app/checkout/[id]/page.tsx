@@ -196,6 +196,36 @@ export default function CheckoutPage() {
     )
   }
 
+  if (device.status !== 'available') {
+    return (
+      <main className="max-w-lg mx-auto px-4 py-8 text-center space-y-4">
+        <div
+          className="rounded-[16px] py-10 px-6"
+          style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}
+        >
+          <p style={{ fontSize: 32 }}>😔</p>
+          <p style={{ fontSize: 18, fontWeight: 700, color: '#dc2626', marginTop: 12 }}>
+            Out of Stock
+          </p>
+          <p style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
+            This device has already been sold or reserved. Browse our other phones.
+          </p>
+        </div>
+        <Link
+          href="/phones"
+          style={{
+            display: 'inline-block', marginTop: 8,
+            background: '#060d0a', color: '#fff',
+            padding: '12px 28px', borderRadius: 12,
+            fontSize: 13, fontWeight: 700, textDecoration: 'none',
+          }}
+        >
+          Browse phones →
+        </Link>
+      </main>
+    )
+  }
+
   const total = device.price + (warrantyExtended ? 1500 : 0)
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
