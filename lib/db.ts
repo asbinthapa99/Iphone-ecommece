@@ -181,6 +181,18 @@ export async function initUsersTable() {
     );
   `
 
+  // Ensure columns added after initial table creation exist (safe on re-run)
+  const orderAlters = [
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_ref TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS device_photo TEXT`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS warranty_extended BOOLEAN NOT NULL DEFAULT FALSE`,
+  ]
+  for (const q of orderAlters) {
+    try { await sql.query(q, []) } catch { /* already exists */ }
+  }
+
   // Query-performance indexes for order dashboards and account pages
   await sql`CREATE INDEX IF NOT EXISTS orders_buyer_email_idx ON orders (buyer_email);`
   await sql`CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status);`

@@ -273,7 +273,9 @@ export async function POST(request: NextRequest) {
       UPDATE devices SET status = 'available', updated_at = NOW()
       WHERE id = ${device.id} AND status = 'reserved'
     `.catch(console.error)
-    throw insertErr
+    const msg = insertErr instanceof Error ? insertErr.message : String(insertErr)
+    console.error('[orders POST] INSERT failed:', msg)
+    return NextResponse.json({ error: `Order could not be saved: ${msg}` }, { status: 500 })
   }
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
