@@ -10,6 +10,10 @@ import { orderCancelledEmail } from './emails/order-cancelled'
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
+export type EmailSendResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
 /** Strip HTML tags to produce a plain-text fallback (improves spam scoring) */
 function htmlToText(html: string): string {
   return html
@@ -34,7 +38,7 @@ function htmlToText(html: string): string {
  * Core email sender using Brevo's REST API.
  * Sends both HTML and plain-text versions to avoid spam filters.
  */
-async function send(to: string, subject: string, htmlContent: string) {
+async function send(to: string, subject: string, htmlContent: string): Promise<EmailSendResult> {
   const apiKey = process.env.BREVO_SMTP_KEY
   const fromEmail = process.env.BREVO_FROM_EMAIL
   const fromName = process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'
@@ -42,7 +46,7 @@ async function send(to: string, subject: string, htmlContent: string) {
   if (!apiKey || !fromEmail) {
     console.warn(`[email] Missing BREVO_SMTP_KEY or BREVO_FROM_EMAIL — email not sent.`)
     console.log(`[email] To: ${to} | Subject: ${subject}`)
-    return
+    return { ok: false, error: 'Missing BREVO email configuration' }
   }
 
   try {
@@ -69,57 +73,63 @@ async function send(to: string, subject: string, htmlContent: string) {
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ message: 'Unknown error' }))
       console.error('[email] Brevo API failure:', { status: res.status, error: errorData })
-      throw new Error(`Email delivery failed: ${res.statusText}`)
+      const detail = typeof errorData === 'object' && errorData && 'message' in errorData
+        ? String(errorData.message)
+        : res.statusText
+      return { ok: false, error: `Brevo rejected email (${res.status}): ${detail}` }
     }
+    return { ok: true }
   } catch (err) {
     console.error('[email] Request failed:', err)
+    const message = err instanceof Error ? err.message : 'Unknown request failure'
+    return { ok: false, error: `Email request failed: ${message}` }
   }
 }
 
-export async function sendOrderConfirmed(order: Order) {
-  if (!order.buyerEmail) return
+export async function sendOrderConfirmed(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = orderConfirmedEmail(order, SITE_URL)
-  await send(order.buyerEmail, subject, html)
+  return send(order.buyerEmail, subject, html)
 }
 
-export async function sendPaymentSuccess(order: Order) {
-  if (!order.buyerEmail) return
+export async function sendPaymentSuccess(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = paymentSuccessEmail(order, SITE_URL)
-  await send(order.buyerEmail, subject, html)
+  return send(order.buyerEmail, subject, html)
 }
 
-export async function sendDeliveryInProcess(order: Order & { trackingNumber?: string }) {
-  if (!order.buyerEmail) return
+export async function sendDeliveryInProcess(order: Order & { trackingNumber?: string }): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = deliveryInProcessEmail(order, SITE_URL)
-  await send(order.buyerEmail, subject, html)
+  return send(order.buyerEmail, subject, html)
 }
 
-export async function sendDelivered(order: Order) {
-  if (!order.buyerEmail) return
+export async function sendDelivered(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = deliveredEmail(order, SITE_URL)
-  await send(order.buyerEmail, subject, html)
+  return send(order.buyerEmail, subject, html)
 }
 
-export async function sendPasswordResetEmail(email: string, otp: string) {
+export async function sendPasswordResetEmail(email: string, otp: string): Promise<EmailSendResult> {
   const { subject, html } = getResetOtpEmail(otp, email)
-  await send(email.toLowerCase().trim(), subject, html)
+  return send(email.toLowerCase().trim(), subject, html)
 }
 
-export async function sendWelcomeEmail(email: string, name?: string | null) {
+export async function sendWelcomeEmail(email: string, name?: string | null): Promise<EmailSendResult> {
   const normalized = email.toLowerCase().trim()
   const { subject, html } = getWelcomeEmail(name ?? null, SITE_URL)
-  await send(normalized, subject, html)
+  return send(normalized, subject, html)
 }
 
-export async function sendAdminNewOrder(order: Order) {
+export async function sendAdminNewOrder(order: Order): Promise<EmailSendResult> {
   const adminEmail = process.env.ADMIN_EMAIL
-  if (!adminEmail) return
+  if (!adminEmail) return { ok: false, error: 'Missing ADMIN_EMAIL configuration' }
   const { subject, html } = adminNewOrderEmail(order, SITE_URL)
-  await send(adminEmail, subject, html)
+  return send(adminEmail, subject, html)
 }
 
-export async function sendOrderCancelled(order: Order) {
-  if (!order.buyerEmail) return
+export async function sendOrderCancelled(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = orderCancelledEmail(order, SITE_URL)
-  await send(order.buyerEmail, subject, html)
+  return send(order.buyerEmail, subject, html)
 }

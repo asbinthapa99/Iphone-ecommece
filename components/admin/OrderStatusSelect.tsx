@@ -33,6 +33,7 @@ export function OrderStatusSelect({ orderId, currentStatus }: Props) {
   const [saving, setSaving] = useState(false)
 
   const handleChange = async (newStatus: OrderStatus) => {
+    if (saving || newStatus === status) return
     const previousStatus = status
     setSaving(true)
     setStatus(newStatus)
@@ -42,13 +43,32 @@ export function OrderStatusSelect({ orderId, currentStatus }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
+      const data = await res.json().catch(() => ({} as Record<string, unknown>))
       if (!res.ok) {
-        throw new Error('Failed to update order status')
+        const message =
+          typeof data.error === 'string' && data.error.trim()
+            ? data.error
+            : 'Failed to update order status'
+        throw new Error(message)
       }
-    } catch {
+
+      const notifications = (data.notifications ?? {}) as Record<string, { attempted?: boolean; sent?: boolean; error?: string }>
+      const confirmedEmail = notifications.orderConfirmedEmail
+      if (newStatus === 'confirmed' && confirmedEmail?.attempted) {
+        if (confirmedEmail.sent) {
+          window.alert('Confirmation email sent to customer.')
+        } else {
+          const reason = confirmedEmail.error ? `\nReason: ${confirmedEmail.error}` : ''
+          window.alert(`Order confirmed, but email was not sent.${reason}`)
+        }
+      }
+    } catch (err) {
       setStatus(previousStatus)
+      const message = err instanceof Error ? err.message : 'Failed to update order status'
+      window.alert(message)
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const colors = STATUS_COLORS[status]

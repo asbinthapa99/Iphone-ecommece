@@ -54,7 +54,7 @@ export default function AdminOrderDetailPage() {
   }, [id])
 
   const handleSave = async () => {
-    if (!order) return
+    if (!order || saving) return
     setSaving(true)
     setError(null)
     try {

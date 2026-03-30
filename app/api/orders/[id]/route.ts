@@ -146,29 +146,45 @@ export async function PATCH(
   const paymentChanged = paymentStatus != null && order.paymentStatus !== previousOrder.paymentStatus
 
   // When cancelled, release the device back to available so it can be purchased again
-  if (status === 'cancelled') {
+  if (statusChanged && status === 'cancelled') {
     await sql`
       UPDATE devices SET status = 'available', updated_at = NOW()
       WHERE id = ${order.device.deviceId} AND status = 'reserved'
     `
   }
 
-  const emailTasks: Array<Promise<void>> = []
-  if (statusChanged && status === 'confirmed') emailTasks.push(sendOrderConfirmed(order))
-  if (paymentChanged && paymentStatus === 'paid') emailTasks.push(sendPaymentSuccess(order))
+  const notifications: Record<string, { attempted: boolean; sent: boolean; error?: string }> = {}
+
+  if (statusChanged && status === 'confirmed') {
+    const result = await sendOrderConfirmed(order)
+    notifications.orderConfirmedEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
+  }
+  if (paymentChanged && paymentStatus === 'paid') {
+    const result = await sendPaymentSuccess(order)
+    notifications.paymentSuccessEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
+  }
   if (statusChanged && status === 'shipped') {
-    emailTasks.push(sendDeliveryInProcess({ ...order, trackingNumber: order.trackingNumber ?? trackingNumber }))
+    const result = await sendDeliveryInProcess({ ...order, trackingNumber: order.trackingNumber ?? trackingNumber })
+    notifications.deliveryInProcessEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
   }
-  if (statusChanged && status === 'delivered') emailTasks.push(sendDelivered(order))
-  if (statusChanged && status === 'cancelled') emailTasks.push(sendOrderCancelled(order))
-
-  if (emailTasks.length > 0) {
-    const results = await Promise.allSettled(emailTasks)
-    const failed = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-    if (failed.length > 0) {
-      console.error('[orders PATCH] One or more notification emails failed', failed.map((f) => f.reason))
-    }
+  if (statusChanged && status === 'delivered') {
+    const result = await sendDelivered(order)
+    notifications.deliveredEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
+  }
+  if (statusChanged && status === 'cancelled') {
+    const result = await sendOrderCancelled(order)
+    notifications.cancelledEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
   }
 
-  return NextResponse.json({ order })
+  return NextResponse.json({ order, notifications })
 }
