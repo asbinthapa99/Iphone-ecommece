@@ -130,6 +130,15 @@ export async function PATCH(
 
   const previousOrder = rowToOrder(existing[0] as Record<string, unknown>)
 
+  // ──── DEBUG: Log incoming request ────
+  console.log(`[order-update] Order ${id}:`, {
+    requestedStatus: status,
+    requestedPaymentStatus: paymentStatus,
+    previousStatus: previousOrder.status,
+    previousPaymentStatus: previousOrder.paymentStatus,
+    buyerEmail: previousOrder.buyerEmail,
+  })
+
   const rows = await sql`
     UPDATE orders SET
       status           = COALESCE(${status ?? null}, status),
@@ -145,6 +154,16 @@ export async function PATCH(
   const statusChanged = status != null && order.status !== previousOrder.status
   const paymentChanged = paymentStatus != null && order.paymentStatus !== previousOrder.paymentStatus
 
+  // ──── DEBUG: Log change detection ────
+  console.log(`[order-update] Change detection:`, {
+    statusChanged,
+    paymentChanged,
+    newStatus: order.status,
+    newPaymentStatus: order.paymentStatus,
+    buyerEmail: order.buyerEmail,
+    hasBuyerEmail: !!order.buyerEmail,
+  })
+
   // When cancelled, release the device back to available so it can be purchased again
   if (statusChanged && status === 'cancelled') {
     await sql`
@@ -156,35 +175,58 @@ export async function PATCH(
   const notifications: Record<string, { attempted: boolean; sent: boolean; error?: string }> = {}
 
   if (statusChanged && status === 'confirmed') {
+    console.log(`[order-update] Sending ORDER CONFIRMED email to ${order.buyerEmail}...`)
     const result = await sendOrderConfirmed(order)
+    console.log(`[order-update] Order confirmed email result:`, result)
     notifications.orderConfirmedEmail = result.ok
       ? { attempted: true, sent: true }
       : { attempted: true, sent: false, error: result.error }
   }
   if (paymentChanged && paymentStatus === 'paid') {
+    console.log(`[order-update] Sending PAYMENT SUCCESS email to ${order.buyerEmail}...`)
     const result = await sendPaymentSuccess(order)
+    console.log(`[order-update] Payment success email result:`, result)
     notifications.paymentSuccessEmail = result.ok
       ? { attempted: true, sent: true }
       : { attempted: true, sent: false, error: result.error }
   }
+  if (statusChanged && status === 'processing') {
+    console.log(`[order-update] Sending ORDER CONFIRMED email (processing) to ${order.buyerEmail}...`)
+    const result = await sendOrderConfirmed(order)
+    console.log(`[order-update] Processing email result:`, result)
+    notifications.processingEmail = result.ok
+      ? { attempted: true, sent: true }
+      : { attempted: true, sent: false, error: result.error }
+  }
   if (statusChanged && status === 'shipped') {
+    console.log(`[order-update] Sending DELIVERY IN PROCESS email to ${order.buyerEmail}...`)
     const result = await sendDeliveryInProcess({ ...order, trackingNumber: order.trackingNumber ?? trackingNumber })
+    console.log(`[order-update] Delivery in process email result:`, result)
     notifications.deliveryInProcessEmail = result.ok
       ? { attempted: true, sent: true }
       : { attempted: true, sent: false, error: result.error }
   }
   if (statusChanged && status === 'delivered') {
+    console.log(`[order-update] Sending DELIVERED email to ${order.buyerEmail}...`)
     const result = await sendDelivered(order)
+    console.log(`[order-update] Delivered email result:`, result)
     notifications.deliveredEmail = result.ok
       ? { attempted: true, sent: true }
       : { attempted: true, sent: false, error: result.error }
   }
   if (statusChanged && status === 'cancelled') {
+    console.log(`[order-update] Sending CANCELLED email to ${order.buyerEmail}...`)
     const result = await sendOrderCancelled(order)
+    console.log(`[order-update] Cancelled email result:`, result)
     notifications.cancelledEmail = result.ok
       ? { attempted: true, sent: true }
       : { attempted: true, sent: false, error: result.error }
   }
 
+  if (!statusChanged && !paymentChanged) {
+    console.log(`[order-update] ⚠️ No status or payment change detected — NO email will be sent.`)
+  }
+
+  console.log(`[order-update] Final notifications:`, JSON.stringify(notifications))
   return NextResponse.json({ order, notifications })
 }

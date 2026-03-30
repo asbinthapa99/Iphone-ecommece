@@ -78,14 +78,16 @@ export default function AdminOrderDetailPage() {
       }
 
       const notifications = (data.notifications ?? {}) as Record<string, { attempted?: boolean; sent?: boolean; error?: string }>
-      const attemptedNotifications = Object.values(notifications).filter((n) => n?.attempted)
+      const attemptedNotifications = Object.entries(notifications).filter(([, n]) => n?.attempted)
       if (attemptedNotifications.length > 0) {
-        const failed = attemptedNotifications.find((n) => !n.sent)
-        if (failed) {
-          const reason = failed.error ? `\nReason: ${failed.error}` : ''
-          window.alert(`Order updated, but email was not sent.${reason}`)
-        } else {
-          window.alert('Customer email sent successfully.')
+        const sentList = attemptedNotifications.filter(([, n]) => n?.sent).map(([key]) => key)
+        const failedList = attemptedNotifications.filter(([, n]) => !n?.sent)
+        
+        if (failedList.length > 0) {
+          const reasons = failedList.map(([key, n]) => `${key}: ${n.error ?? 'Unknown error'}`).join('\n')
+          window.alert(`Order updated, but email(s) failed:\n${reasons}`)
+        } else if (sentList.length > 0) {
+          window.alert(`Order updated! Email(s) sent: ${sentList.join(', ')}`)
         }
       }
 
