@@ -88,7 +88,15 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const body = await request.json()
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   const { status, paymentStatus, trackingNumber, notes } = body as {
     status?: OrderStatus
     paymentStatus?: PaymentStatus
@@ -96,7 +104,7 @@ export async function PATCH(
     notes?: string
   }
 
-  const allowedStatuses: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']
+  const allowedStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled']
   const allowedPaymentStatuses: PaymentStatus[] = ['pending', 'paid', 'failed', 'refunded']
 
   if (status != null && !allowedStatuses.includes(status)) {
@@ -120,6 +128,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
+  const previousOrder = rowToOrder(existing[0] as Record<string, unknown>)
+
   const rows = await sql`
     UPDATE orders SET
       status           = COALESCE(${status ?? null}, status),
@@ -132,6 +142,8 @@ export async function PATCH(
   `
 
   const order = rowToOrder(rows[0] as Record<string, unknown>)
+  const statusChanged = status != null && order.status !== previousOrder.status
+  const paymentChanged = paymentStatus != null && order.paymentStatus !== previousOrder.paymentStatus
 
   // When cancelled, release the device back to available so it can be purchased again
   if (status === 'cancelled') {
@@ -141,11 +153,22 @@ export async function PATCH(
     `
   }
 
-  if (status === 'confirmed') sendOrderConfirmed(order).catch(console.error)
-  if (paymentStatus === 'paid') sendPaymentSuccess(order).catch(console.error)
-  if (status === 'shipped') sendDeliveryInProcess({ ...order, trackingNumber }).catch(console.error)
-  if (status === 'delivered') sendDelivered(order).catch(console.error)
-  if (status === 'cancelled') sendOrderCancelled(order).catch(console.error)
+  const emailTasks: Array<Promise<void>> = []
+  if (statusChanged && status === 'confirmed') emailTasks.push(sendOrderConfirmed(order))
+  if (paymentChanged && paymentStatus === 'paid') emailTasks.push(sendPaymentSuccess(order))
+  if (statusChanged && status === 'shipped') {
+    emailTasks.push(sendDeliveryInProcess({ ...order, trackingNumber: order.trackingNumber ?? trackingNumber }))
+  }
+  if (statusChanged && status === 'delivered') emailTasks.push(sendDelivered(order))
+  if (statusChanged && status === 'cancelled') emailTasks.push(sendOrderCancelled(order))
+
+  if (emailTasks.length > 0) {
+    const results = await Promise.allSettled(emailTasks)
+    const failed = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failed.length > 0) {
+      console.error('[orders PATCH] One or more notification emails failed', failed.map((f) => f.reason))
+    }
+  }
 
   return NextResponse.json({ order })
 }

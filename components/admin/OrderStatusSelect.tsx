@@ -33,15 +33,21 @@ export function OrderStatusSelect({ orderId, currentStatus }: Props) {
   const [saving, setSaving] = useState(false)
 
   const handleChange = async (newStatus: OrderStatus) => {
+    const previousStatus = status
     setSaving(true)
     setStatus(newStatus)
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
-    } catch {}
+      if (!res.ok) {
+        throw new Error('Failed to update order status')
+      }
+    } catch {
+      setStatus(previousStatus)
+    }
     setSaving(false)
   }
 
