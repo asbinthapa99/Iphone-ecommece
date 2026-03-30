@@ -8,6 +8,7 @@ import {
   Truck, Save, MessageCircle,
 } from 'lucide-react'
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect'
+import { EmailNotificationToast, type NotificationEntry } from '@/components/admin/EmailNotificationToast'
 import type { Order, OrderStatus, PaymentStatus } from '@/types'
 
 const PAYMENT_COLORS: Record<PaymentStatus, { bg: string; color: string; label: string }> = {
@@ -28,6 +29,7 @@ export default function AdminOrderDetailPage() {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [emailToast, setEmailToast] = useState<{ notifications: NotificationEntry[]; recipientEmail?: string } | null>(null)
   const saveLockRef = useRef(false)
 
   useEffect(() => {
@@ -80,15 +82,13 @@ export default function AdminOrderDetailPage() {
       const notifications = (data.notifications ?? {}) as Record<string, { attempted?: boolean; sent?: boolean; error?: string }>
       const attemptedNotifications = Object.entries(notifications).filter(([, n]) => n?.attempted)
       if (attemptedNotifications.length > 0) {
-        const sentList = attemptedNotifications.filter(([, n]) => n?.sent).map(([key]) => key)
-        const failedList = attemptedNotifications.filter(([, n]) => !n?.sent)
-        
-        if (failedList.length > 0) {
-          const reasons = failedList.map(([key, n]) => `${key}: ${n.error ?? 'Unknown error'}`).join('\n')
-          window.alert(`Order updated, but email(s) failed:\n${reasons}`)
-        } else if (sentList.length > 0) {
-          window.alert(`Order updated! Email(s) sent: ${sentList.join(', ')}`)
-        }
+        const toastEntries: NotificationEntry[] = attemptedNotifications.map(([key, n]) => ({
+          key,
+          attempted: !!n.attempted,
+          sent: !!n.sent,
+          error: n.error,
+        }))
+        setEmailToast({ notifications: toastEntries, recipientEmail: order?.buyerEmail })
       }
 
       setSaved(true)
@@ -354,6 +354,14 @@ export default function AdminOrderDetailPage() {
           </a>
         </div>
       </div>
+      {/* Email notification toast */}
+      {emailToast && (
+        <EmailNotificationToast
+          notifications={emailToast.notifications}
+          recipientEmail={emailToast.recipientEmail}
+          onClose={() => setEmailToast(null)}
+        />
+      )}
     </div>
   )
 }

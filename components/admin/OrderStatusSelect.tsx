@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { OrderStatus } from '@/types'
+import { EmailNotificationToast, type NotificationEntry } from '@/components/admin/EmailNotificationToast'
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'pending', label: 'Pending' },
@@ -40,6 +41,8 @@ export function OrderStatusSelect({
 }: Props) {
   const [status, setStatus] = useState<OrderStatus>(currentStatus)
   const [saving, setSaving] = useState(false)
+  const [emailToast, setEmailToast] = useState<{ notifications: NotificationEntry[] } | null>(null)
+  const [errorToast, setErrorToast] = useState<string | null>(null)
 
   useEffect(() => {
     setStatus(currentStatus)
@@ -73,19 +76,21 @@ export function OrderStatusSelect({
       }
 
       const notifications = (data.notifications ?? {}) as Record<string, { attempted?: boolean; sent?: boolean; error?: string }>
-      const confirmedEmail = notifications.orderConfirmedEmail
-      if (newStatus === 'confirmed' && confirmedEmail?.attempted) {
-        if (confirmedEmail.sent) {
-          window.alert('Confirmation email sent to customer.')
-        } else {
-          const reason = confirmedEmail.error ? `\nReason: ${confirmedEmail.error}` : ''
-          window.alert(`Order confirmed, but email was not sent.${reason}`)
-        }
+      const attemptedNotifications = Object.entries(notifications).filter(([, n]) => n?.attempted)
+      if (attemptedNotifications.length > 0) {
+        const toastEntries: NotificationEntry[] = attemptedNotifications.map(([key, n]) => ({
+          key,
+          attempted: !!n.attempted,
+          sent: !!n.sent,
+          error: n.error,
+        }))
+        setEmailToast({ notifications: toastEntries })
       }
     } catch (err) {
       setStatus(previousStatus)
       const message = err instanceof Error ? err.message : 'Failed to update order status'
-      window.alert(message)
+      setErrorToast(message)
+      setTimeout(() => setErrorToast(null), 3000)
     } finally {
       setSaving(false)
     }
@@ -94,25 +99,59 @@ export function OrderStatusSelect({
   const colors = STATUS_COLORS[status]
 
   return (
-    <select
-      value={status}
-      onChange={(e) => handleChange(e.target.value as OrderStatus)}
-      disabled={saving || disabled}
-      style={{
-        padding: '4px 8px',
-        borderRadius: 8,
-        border: `1px solid ${colors.color}30`,
-        background: colors.bg,
-        color: colors.color,
-        fontSize: 11,
-        fontWeight: 600,
-        cursor: saving || disabled ? 'not-allowed' : 'pointer',
-        outline: 'none',
-      }}
-    >
-      {STATUS_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
+    <>
+      <select
+        value={status}
+        onChange={(e) => handleChange(e.target.value as OrderStatus)}
+        disabled={saving || disabled}
+        style={{
+          padding: '4px 8px',
+          borderRadius: 8,
+          border: `1px solid ${colors.color}30`,
+          background: colors.bg,
+          color: colors.color,
+          fontSize: 11,
+          fontWeight: 600,
+          cursor: saving || disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+        }}
+      >
+        {STATUS_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+
+      {/* Email notification toast */}
+      {emailToast && (
+        <EmailNotificationToast
+          notifications={emailToast.notifications}
+          onClose={() => setEmailToast(null)}
+        />
+      )}
+
+      {/* Error toast */}
+      {errorToast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            padding: '12px 20px',
+            background: '#dc2626',
+            color: '#fff',
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 600,
+            boxShadow: '0 8px 24px rgba(220,38,38,0.3)',
+            animation: 'emailRowSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {errorToast}
+        </div>
+      )}
+    </>
   )
 }
+
