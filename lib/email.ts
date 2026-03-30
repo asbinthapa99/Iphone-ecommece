@@ -10,17 +10,37 @@ import { orderCancelledEmail } from './emails/order-cancelled'
 
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
+/** Strip HTML tags to produce a plain-text fallback (improves spam scoring) */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 /**
- * Core email sender using Brevo's REST API. 
- * Replaces older SMTP logic which can be unreliable in edge functions.
+ * Core email sender using Brevo's REST API.
+ * Sends both HTML and plain-text versions to avoid spam filters.
  */
 async function send(to: string, subject: string, htmlContent: string) {
-  const apiKey = process.env.BREVO_SMTP_KEY // Brevo uses the same key for SMTP and API v3
+  const apiKey = process.env.BREVO_SMTP_KEY
   const fromEmail = process.env.BREVO_FROM_EMAIL
   const fromName = process.env.BREVO_FROM_NAME ?? 'Inexa Nepal'
 
   if (!apiKey || !fromEmail) {
-    console.warn(`[email] Missing BREVO_SMTP_KEY or BREVO_FROM_EMAIL. Logging to console instead.`)
+    console.warn(`[email] Missing BREVO_SMTP_KEY or BREVO_FROM_EMAIL — email not sent.`)
     console.log(`[email] To: ${to} | Subject: ${subject}`)
     return
   }
@@ -35,17 +55,20 @@ async function send(to: string, subject: string, htmlContent: string) {
       body: JSON.stringify({
         sender: { name: fromName, email: fromEmail },
         to: [{ email: to }],
+        replyTo: { email: fromEmail, name: fromName },
         subject,
         htmlContent,
+        textContent: htmlToText(htmlContent),
+        headers: {
+          'X-Mailer': 'Inexa Nepal Transactional',
+          'X-Entity-Ref-ID': `${Date.now()}-${to.replace(/[^a-z0-9]/gi, '')}`,
+        },
       }),
     })
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ message: 'Unknown error' }))
-      console.error('[email] Brevo API failure:', {
-        status: res.status,
-        error: errorData,
-      })
+      console.error('[email] Brevo API failure:', { status: res.status, error: errorData })
       throw new Error(`Email delivery failed: ${res.statusText}`)
     }
   } catch (err) {
