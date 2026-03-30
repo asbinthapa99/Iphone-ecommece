@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { OrderStatus } from '@/types'
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
@@ -26,14 +26,34 @@ const STATUS_COLORS: Record<OrderStatus, { bg: string; color: string }> = {
 interface Props {
   orderId: string
   currentStatus: OrderStatus
+  autoSave?: boolean
+  disabled?: boolean
+  onStatusChange?: (status: OrderStatus) => void
 }
 
-export function OrderStatusSelect({ orderId, currentStatus }: Props) {
+export function OrderStatusSelect({
+  orderId,
+  currentStatus,
+  autoSave = true,
+  disabled = false,
+  onStatusChange,
+}: Props) {
   const [status, setStatus] = useState<OrderStatus>(currentStatus)
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    setStatus(currentStatus)
+  }, [currentStatus])
+
   const handleChange = async (newStatus: OrderStatus) => {
-    if (saving || newStatus === status) return
+    if (saving || disabled || newStatus === status) return
+
+    if (!autoSave) {
+      setStatus(newStatus)
+      onStatusChange?.(newStatus)
+      return
+    }
+
     const previousStatus = status
     setSaving(true)
     setStatus(newStatus)
@@ -77,7 +97,7 @@ export function OrderStatusSelect({ orderId, currentStatus }: Props) {
     <select
       value={status}
       onChange={(e) => handleChange(e.target.value as OrderStatus)}
-      disabled={saving}
+      disabled={saving || disabled}
       style={{
         padding: '4px 8px',
         borderRadius: 8,
@@ -86,7 +106,7 @@ export function OrderStatusSelect({ orderId, currentStatus }: Props) {
         color: colors.color,
         fontSize: 11,
         fontWeight: 600,
-        cursor: 'pointer',
+        cursor: saving || disabled ? 'not-allowed' : 'pointer',
         outline: 'none',
       }}
     >

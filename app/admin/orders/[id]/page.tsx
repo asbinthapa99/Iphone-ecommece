@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import {
   ArrowLeft, Package, MapPin, CreditCard,
@@ -22,11 +22,13 @@ export default function AdminOrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [tracking, setTracking] = useState('')
   const [adminNotes, setAdminNotes] = useState('')
+  const [status, setStatus] = useState<OrderStatus>('pending')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pending')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const saveLockRef = useRef(false)
 
   useEffect(() => {
     const run = async () => {
@@ -43,6 +45,7 @@ export default function AdminOrderDetailPage() {
         setOrder(loadedOrder)
         setTracking(loadedOrder.trackingNumber ?? '')
         setAdminNotes(loadedOrder.notes ?? '')
+        setStatus(loadedOrder.status as OrderStatus)
         setPaymentStatus(loadedOrder.paymentStatus)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load order')
@@ -54,28 +57,46 @@ export default function AdminOrderDetailPage() {
   }, [id])
 
   const handleSave = async () => {
-    if (!order || saving) return
+    if (!order || saving || saveLockRef.current) return
+    saveLockRef.current = true
     setSaving(true)
     setError(null)
     try {
       const res = await fetch(`/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trackingNumber: tracking, notes: adminNotes, paymentStatus }),
+        body: JSON.stringify({ status, trackingNumber: tracking, notes: adminNotes, paymentStatus }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         throw new Error(data.error ?? 'Failed to update order')
       }
       if (data.order) {
-        setOrder(data.order as Order)
+        const nextOrder = data.order as Order
+        setOrder(nextOrder)
+        setStatus(nextOrder.status as OrderStatus)
       }
+
+      const notifications = (data.notifications ?? {}) as Record<string, { attempted?: boolean; sent?: boolean; error?: string }>
+      const attemptedNotifications = Object.values(notifications).filter((n) => n?.attempted)
+      if (attemptedNotifications.length > 0) {
+        const failed = attemptedNotifications.find((n) => !n.sent)
+        if (failed) {
+          const reason = failed.error ? `\nReason: ${failed.error}` : ''
+          window.alert(`Order updated, but email was not sent.${reason}`)
+        } else {
+          window.alert('Customer email sent successfully.')
+        }
+      }
+
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update order')
+    } finally {
+      setSaving(false)
+      saveLockRef.current = false
     }
-    setSaving(false)
   }
 
   if (loading) {
@@ -214,7 +235,13 @@ export default function AdminOrderDetailPage() {
           {/* Status control */}
           <div className="rounded-[14px] p-4" style={{ background: '#fff', border: '0.5px solid #ebebeb' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#060d0a', marginBottom: 12 }}>Order Status</p>
-            <OrderStatusSelect orderId={order.id} currentStatus={order.status as OrderStatus} />
+            <OrderStatusSelect
+              orderId={order.id}
+              currentStatus={status}
+              autoSave={false}
+              disabled={saving}
+              onStatusChange={setStatus}
+            />
 
             <p style={{ fontSize: 12, fontWeight: 700, color: '#060d0a', marginTop: 14, marginBottom: 8 }}>Payment Status</p>
             <div className="flex items-center gap-2 flex-wrap">
