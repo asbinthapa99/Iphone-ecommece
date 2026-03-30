@@ -1,18 +1,18 @@
 import { emailBase, statusBanner, orderRow, ctaButton, trustRow, qrCodeBlock, progressTracker } from './base'
 import type { Order } from '@/types'
 
-export function orderConfirmedEmail(order: Order, siteUrl = 'https://inexanepal.com') {
+export function orderPlacedEmail(order: Order, siteUrl = 'https://inexanepal.com') {
   const payLabel: Record<string, string> = {
-    esewa: 'eSewa', khalti: 'Khalti', cod: 'Cash on Delivery', bank_transfer: 'Bank Transfer',
+    esewa: 'eSewa', khalti: 'Khalti', cod: 'Cash on Delivery', bank_transfer: 'Bank Transfer', qr: 'Scan & Pay (QR)',
   }
 
   const orderUrl = `${siteUrl}/account/orders/${order.id}`
 
   const content = `
   <table width="100%" cellpadding="0" cellspacing="0">
-    ${statusBanner('#0F6E56', '#f0faf6', '🎉', 'Order Confirmed!', `Thanks ${order.buyerName.split(' ')[0]}! We've received your order and our team will prepare it right away.`)}
+    ${statusBanner('#92400e', '#fffbeb', '📦', 'Order Received!', `Thanks ${order.buyerName.split(' ')[0]}! We've received your order and it's being reviewed by our team.`)}
 
-    ${progressTracker('confirmed')}
+    ${progressTracker('placed')}
 
     <!-- Device card -->
     <tr><td style="padding:20px 32px 0;">
@@ -40,15 +40,17 @@ export function orderConfirmedEmail(order: Order, siteUrl = 'https://inexanepal.
       </table>
     </td></tr>
 
-    <!-- COD note -->
-    ${order.paymentMethod === 'cod' ? `
+    <!-- What happens next -->
     <tr><td style="padding:0 32px 20px;">
-      <table width="100%" cellpadding="8" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;">
-        <tr><td style="font-size:12px;color:#92400e;line-height:1.6;">
-          💵 <strong>Cash on Delivery:</strong> Please keep NPR ${order.amount.toLocaleString()} ready at the time of delivery.
+      <table width="100%" cellpadding="12" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;">
+        <tr><td>
+          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#92400e;">What happens next?</p>
+          <p style="margin:0 0 4px;font-size:12px;color:#444;line-height:1.6;">1️⃣ &nbsp;Our team will review and confirm your order</p>
+          <p style="margin:0 0 4px;font-size:12px;color:#444;line-height:1.6;">2️⃣ &nbsp;You'll receive a confirmation email once approved</p>
+          <p style="margin:0;font-size:12px;color:#444;line-height:1.6;">3️⃣ &nbsp;Your device will be prepared and dispatched</p>
         </td></tr>
       </table>
-    </td></tr>` : ''}
+    </td></tr>
 
     ${qrCodeBlock(orderUrl)}
     ${ctaButton('Track Your Order', orderUrl)}
@@ -56,7 +58,7 @@ export function orderConfirmedEmail(order: Order, siteUrl = 'https://inexanepal.
   </table>`
 
   return {
-    subject: `Order Confirmed — #${order.orderNumber} | Inexa Nepal`,
-    html: emailBase(content, `Your order #${order.orderNumber} is confirmed!`),
+    subject: `Order Received — #${order.orderNumber} | Inexa Nepal`,
+    html: emailBase(content, `We've received your order #${order.orderNumber}!`),
   }
 }

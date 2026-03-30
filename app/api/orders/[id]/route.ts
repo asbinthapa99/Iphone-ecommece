@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types'
-import { sendOrderConfirmed, sendPaymentSuccess, sendDeliveryInProcess, sendDelivered, sendOrderCancelled } from '@/lib/email'
+import { sendOrderConfirmed, sendOrderProcessing, sendPaymentSuccess, sendDeliveryInProcess, sendDelivered, sendOrderCancelled } from '@/lib/email'
 import { sql, initUsersTable } from '@/lib/db'
 import { isPrimaryAdminEmail } from '@/lib/admin-emails'
 
@@ -191,8 +191,8 @@ export async function PATCH(
       : { attempted: true, sent: false, error: result.error }
   }
   if (statusChanged && status === 'processing') {
-    console.log(`[order-update] Sending ORDER CONFIRMED email (processing) to ${order.buyerEmail}...`)
-    const result = await sendOrderConfirmed(order)
+    console.log(`[order-update] Sending ORDER PROCESSING email to ${order.buyerEmail}...`)
+    const result = await sendOrderProcessing(order)
     console.log(`[order-update] Processing email result:`, result)
     notifications.processingEmail = result.ok
       ? { attempted: true, sent: true }

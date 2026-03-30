@@ -1,5 +1,7 @@
 import type { Order } from '@/types'
+import { orderPlacedEmail } from './emails/order-placed'
 import { orderConfirmedEmail } from './emails/order-confirmed'
+import { orderProcessingEmail } from './emails/order-processing'
 import { paymentSuccessEmail } from './emails/payment-success'
 import { deliveryInProcessEmail } from './emails/delivery-in-process'
 import { deliveredEmail } from './emails/delivered'
@@ -131,5 +133,17 @@ export async function sendAdminNewOrder(order: Order): Promise<EmailSendResult> 
 export async function sendOrderCancelled(order: Order): Promise<EmailSendResult> {
   if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
   const { subject, html } = orderCancelledEmail(order, SITE_URL)
+  return send(order.buyerEmail, subject, html)
+}
+
+export async function sendOrderPlaced(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
+  const { subject, html } = orderPlacedEmail(order, SITE_URL)
+  return send(order.buyerEmail, subject, html)
+}
+
+export async function sendOrderProcessing(order: Order): Promise<EmailSendResult> {
+  if (!order.buyerEmail) return { ok: false, error: 'Missing buyer email' }
+  const { subject, html } = orderProcessingEmail(order, SITE_URL)
   return send(order.buyerEmail, subject, html)
 }

@@ -1,4 +1,4 @@
-import { emailBase, statusBanner, orderRow, ctaButton, trustRow } from './base'
+import { emailBase, statusBanner, orderRow, ctaButton, trustRow, qrCodeBlock, progressTracker } from './base'
 import type { Order } from '@/types'
 
 export function paymentSuccessEmail(order: Order, siteUrl = 'https://inexanepal.com') {
@@ -6,12 +6,16 @@ export function paymentSuccessEmail(order: Order, siteUrl = 'https://inexanepal.
     esewa: 'eSewa', khalti: 'Khalti', cod: 'Cash on Delivery', bank_transfer: 'Bank Transfer',
   }
 
+  const orderUrl = `${siteUrl}/account/orders/${order.id}`
+
   const content = `
   <table width="100%" cellpadding="0" cellspacing="0">
     ${statusBanner('#0F6E56', '#f0faf6', '✅', 'Payment Received!', `We've confirmed your payment of NPR ${order.amount.toLocaleString()} for your ${order.device.model}.`)}
 
+    ${progressTracker('confirmed')}
+
     <!-- Payment confirmation badge -->
-    <tr><td style="padding:24px 32px 0;" align="center">
+    <tr><td style="padding:20px 32px 0;" align="center">
       <table cellpadding="0" cellspacing="0" style="background:#E1F5EE;border-radius:100px;padding:8px 20px;">
         <tr>
           <td style="font-size:12px;font-weight:700;color:#0F6E56;letter-spacing:0.03em;">
@@ -59,7 +63,8 @@ export function paymentSuccessEmail(order: Order, siteUrl = 'https://inexanepal.
       </table>
     </td></tr>
 
-    ${ctaButton('View Order Details', `${siteUrl}/account/orders/${order.id}`)}
+    ${qrCodeBlock(orderUrl)}
+    ${ctaButton('View Order Details', orderUrl)}
     ${trustRow()}
   </table>`
 

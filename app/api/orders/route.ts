@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Order, PaymentMethod } from '@/types'
-import { sendOrderConfirmed, sendAdminNewOrder } from '@/lib/email'
+import { sendOrderPlaced, sendAdminNewOrder } from '@/lib/email'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { sql, initDevicesTable, initUsersTable } from '@/lib/db'
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
   const order = rowToOrder(rows[0] as Record<string, unknown>)
 
   // Fire-and-forget — don't block response on emails
-  sendOrderConfirmed(order).catch(console.error)
+  sendOrderPlaced(order).catch(console.error)
   sendAdminNewOrder(order).catch(console.error)
 
   return NextResponse.json({ order }, { status: 201 })

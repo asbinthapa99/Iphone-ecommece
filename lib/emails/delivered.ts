@@ -1,25 +1,14 @@
-import { emailBase, statusBanner, ctaButton } from './base'
+import { emailBase, statusBanner, ctaButton, qrCodeBlock, progressTracker } from './base'
 import type { Order } from '@/types'
 
 export function deliveredEmail(order: Order, siteUrl = 'https://inexanepal.com') {
+  const orderUrl = `${siteUrl}/account/orders/${order.id}`
+
   const content = `
   <table width="100%" cellpadding="0" cellspacing="0">
     ${statusBanner('#0F6E56', '#f0faf6', '🎊', 'Delivered Successfully!', `Your ${order.device.model} has been delivered. We hope you love it!`)}
 
-    <!-- Progress tracker — all complete -->
-    <tr><td style="padding:28px 32px 0;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          ${['Order Placed', 'Payment Confirmed', 'Out for Delivery', 'Delivered ✓'].map((label, i, arr) => `
-            <td style="text-align:center;vertical-align:top;position:relative;">
-              <div style="width:28px;height:28px;border-radius:50%;background:${i === arr.length - 1 ? '#0F6E56' : '#1D9E75'};margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:700;">✓</div>
-              <p style="margin:0;font-size:10px;font-weight:${i === arr.length - 1 ? '700' : '500'};color:${i === arr.length - 1 ? '#0F6E56' : '#1D9E75'};line-height:1.3;">${label}</p>
-              ${i < arr.length - 1 ? `<div style="position:absolute;top:14px;left:calc(50% + 14px);right:calc(-50% + 14px);height:2px;background:#1D9E75;"></div>` : ''}
-            </td>
-          `).join('')}
-        </tr>
-      </table>
-    </td></tr>
+    ${progressTracker('delivered')}
 
     <!-- Warranty reminder -->
     <tr><td style="padding:24px 32px 0;">
@@ -72,7 +61,8 @@ export function deliveredEmail(order: Order, siteUrl = 'https://inexanepal.com')
       <a href="${siteUrl}/phones" style="font-size:13px;font-weight:700;color:#1D9E75;text-decoration:none;">Share Inexa Nepal →</a>
     </td></tr>
 
-    ${ctaButton('View Order & Warranty', `${siteUrl}/account/orders/${order.id}`)}
+    ${qrCodeBlock(orderUrl, 'Scan for order & warranty details')}
+    ${ctaButton('View Order & Warranty', orderUrl)}
 
     <!-- Footer trust row -->
     <tr><td style="padding:20px 32px;background:#f9f9f7;border-top:1px solid #f0f0ee;">
