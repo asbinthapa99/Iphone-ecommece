@@ -201,7 +201,12 @@ export async function initUsersTable() {
        CHECK (payment_method IN ('esewa','khalti','cod','bank_transfer','qr'))`,
       []
     )
-  } catch { /* ignore if table doesn't have the constraint */ }
+  } catch { /* ignore */ }
+
+  // Drop FK on user_id — orders are linked to users via buyer_email; user_id is informational only
+  try {
+    await sql.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey`, [])
+  } catch { /* ignore */ }
 
   // Query-performance indexes for order dashboards and account pages
   await sql`CREATE INDEX IF NOT EXISTS orders_buyer_email_idx ON orders (buyer_email);`
