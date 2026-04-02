@@ -11,6 +11,7 @@ import { CartProvider } from "@/lib/cart";
 import { CookieConsent } from "@/components/layout/CookieConsent";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { organizationJsonLd, websiteJsonLd, SITE_URL, SITE_NAME, SITE_TAGLINE } from "@/lib/seo";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
@@ -121,6 +122,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="md:hidden" style={{ height: 'calc(62px + env(safe-area-inset-bottom, 0px))' }} />
           </AuthProvider>
         </CartProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
